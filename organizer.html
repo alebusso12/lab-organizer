@@ -1,0 +1,1109 @@
+<title>Lab Organizer</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/smiles-drawer@1.2.0/dist/smiles-drawer.min.js"></script>
+<style>
+/* Layout: sidebar (Today, Projects, Search + project list) + work area; projects are the centre, everything lives inside one */
+:root{
+  --bg:#f2f5f4; --surface:#ffffff; --sunk:#e8eeec; --ink:#14201e; --muted:#5a6a67; --line:#d6dfdc;
+  --accent:#1d5bd6; --accent-ink:#ffffff; --ok:#1d8656; --warn:#a86a12; --bad:#c03b27;
+  --f-display:"Bricolage Grotesque", "Instrument Sans", system-ui, sans-serif;
+  --f-body:"Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono:"JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --r:10px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0e1413; --surface:#161e1d; --sunk:#1c2625; --ink:#e4edeb; --muted:#93a39f; --line:#2a3634;
+  --accent:#6f9dff; --accent-ink:#0b1220; --ok:#4cc58d; --warn:#e3ad52; --bad:#ff7d66; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#0e1413; --surface:#161e1d; --sunk:#1c2625; --ink:#e4edeb; --muted:#93a39f; --line:#2a3634;
+  --accent:#6f9dff; --accent-ink:#0b1220; --ok:#4cc58d; --warn:#e3ad52; --bad:#ff7d66; color-scheme:dark }
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5}
+button,input,select,textarea{font:inherit;color:inherit}
+a{color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.mono{font-family:var(--f-mono);font-size:.85em;letter-spacing:0}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;line-height:1.15}
+h1{font-size:clamp(1.7rem,3vw,2.3rem)}
+h2{font-size:1.25rem}
+h3{font-size:.78rem;font-family:var(--f-body);font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
+
+.app{display:grid;grid-template-columns:250px minmax(0,1fr);min-height:100vh}
+.side{border-right:1px solid var(--line);padding-block:22px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:16px;display:flex;flex-direction:column;gap:22px;position:sticky;top:env(safe-area-inset-top,0px);height:100vh;overflow:auto}
+.brand{display:flex;align-items:center;gap:10px;font-family:var(--f-display);font-weight:700;font-size:1.1rem}
+.brand svg{flex:none}
+.nav{display:flex;flex-direction:column;gap:2px}
+.nav a{display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:8px;text-decoration:none;color:var(--ink);font-weight:500}
+.nav a:hover{background:var(--sunk)}
+.nav a.on{background:var(--ink);color:var(--bg)}
+.nav .n{margin-left:auto;font-family:var(--f-mono);font-size:.75rem;color:var(--muted)}
+.nav a.on .n{color:inherit;opacity:.7}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--c,var(--muted));flex:none}
+.side .projs a{font-weight:400;font-size:.93rem;flex-wrap:wrap;row-gap:4px}
+.side .projs a .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0}
+.side .projs a .bar{flex-basis:100%;height:3px;margin-left:19px}
+.side-foot{margin-top:auto;display:flex;flex-direction:column;gap:8px}
+
+.main{padding-block:28px 60px;padding-left:max(16px,2.5vw);padding-right:max(16px,env(safe-area-inset-right,0px),2.5vw);min-width:0;max-width:1240px;width:100%}
+.head{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px 20px;margin-bottom:22px}
+.head .sub{color:var(--muted);margin-top:6px}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:7px 12px;cursor:pointer;font-weight:500;display:inline-flex;align-items:center;gap:6px;text-decoration:none;color:var(--ink);font-size:.92rem}
+.btn:hover{border-color:var(--muted)}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.big{padding:10px 18px;font-size:1rem;font-weight:600}
+.btn.ghost{border-color:transparent;background:transparent;color:var(--muted);padding:5px 8px}
+.btn.ghost:hover{color:var(--ink);background:var(--sunk)}
+.btn.danger{color:var(--bad)}
+.btn.danger.arm{background:var(--bad);color:var(--surface);border-color:var(--bad)}
+.btn.sm{padding:4px 9px;font-size:.84rem}
+
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px 18px}
+.grid-today{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:24px;align-items:start}
+.stack{display:flex;flex-direction:column;gap:22px;min-width:0}
+.sec{display:flex;flex-direction:column;gap:10px}
+.sec-h{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.sec-h .cnt{font-family:var(--f-mono);font-size:.75rem;color:var(--muted)}
+.sec-h.bad h3{color:var(--bad)}
+
+/* quick add */
+.qa{display:flex;flex-wrap:wrap;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:8px}
+.qa input[type=text],.qa textarea{flex:1 1 220px;min-width:0;border:0;background:transparent;padding:6px 8px;outline:none}
+.qa textarea{resize:vertical;min-height:38px}
+.qa select,.qa input[type=date],.qa input[type=number]{border:1px solid var(--line);background:var(--bg);border-radius:7px;padding:5px 8px;max-width:100%}
+.qa input[type=number]{width:84px}
+
+/* tasks */
+.list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:var(--r)}
+.list>li+li{border-top:1px solid var(--line)}
+.task{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:start;padding:10px 12px}
+.check{width:22px;height:22px;border-radius:6px;border:1.5px solid var(--muted);background:transparent;cursor:pointer;display:grid;place-items:center;margin-top:1px;padding:0}
+.check svg{opacity:0}
+.check:hover{border-color:var(--ok)}
+.task.done .check{background:var(--ok);border-color:var(--ok);color:var(--surface)}
+.task.done .check svg{opacity:1}
+.task.done .ttl{text-decoration:line-through;color:var(--muted)}
+.task.p1 .check{border-color:var(--bad)}
+.ttl{font-weight:500;overflow-wrap:anywhere}
+.meta{display:flex;flex-wrap:wrap;gap:6px 10px;margin-top:3px;font-size:.82rem;color:var(--muted);align-items:center}
+.meta a{text-decoration:none}
+.hrs{font-family:var(--f-mono);font-size:.76rem;padding:0 6px;border-radius:5px;background:var(--sunk);color:var(--ink);border:0;line-height:1.6}
+button.hrs{cursor:pointer}
+button.hrs:hover{outline:1px solid var(--muted)}
+.hrs.guess{color:var(--muted)}
+
+/* settings */
+.kinds{display:flex;flex-direction:column;gap:8px}
+.krow{display:grid;grid-template-columns:auto minmax(140px,1.1fr) 92px minmax(160px,2fr) auto;gap:8px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:8px 10px}
+.krow.hd{background:transparent;border:0;padding-block:0;font-size:.76rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.krow input{border:1px solid var(--line);background:var(--bg);border-radius:7px;padding:6px 8px;width:100%;min-width:0}
+.krow .ord{display:flex;flex-direction:column}
+.krow .ord button{border:0;background:none;color:var(--muted);cursor:pointer;padding:0 4px;line-height:1.1;font-size:.8rem}
+.krow .ord button:disabled{opacity:.25;cursor:default}
+.krow .use{font-size:.74rem;color:var(--muted);white-space:nowrap}
+.setgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,220px));gap:12px}
+.setgrid .fld input{border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:8px 10px;width:100%}
+.savebar{position:sticky;bottom:calc(12px + env(safe-area-inset-bottom,0px));display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;background:var(--ink);color:var(--bg);border-radius:var(--r);padding:10px 14px;z-index:5}
+.savebar .btn{border-color:transparent}
+@media (max-width:760px){.krow{grid-template-columns:auto minmax(0,1fr) 80px auto}.krow .kw{grid-column:2/-1}.krow.hd{display:none}}
+.chip{display:inline-flex;align-items:center;gap:5px;font-size:.78rem;padding:1px 8px;border-radius:999px;background:color-mix(in srgb,var(--c,var(--muted)) 14%,transparent);color:var(--ink);text-decoration:none;white-space:nowrap}
+.chip .dot{width:7px;height:7px}
+.due.late{color:var(--bad);font-weight:600}
+.due.today{color:var(--accent);font-weight:600}
+.tact{display:flex;gap:2px}
+.star{color:var(--muted)}
+.star.on{color:var(--warn)}
+.empty{padding:16px;color:var(--muted);font-size:.92rem;background:var(--surface);border:1px dashed var(--line);border-radius:var(--r)}
+
+/* daily work */
+.daycard{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px 18px;display:flex;flex-direction:column;gap:12px}
+.daybar{display:flex;height:12px;border-radius:99px;overflow:hidden;background:var(--sunk);gap:2px}
+.daybar i{display:block;height:100%;background:var(--c,var(--accent))}
+.daybar i.done{opacity:.35}
+.dayleg{display:flex;justify-content:space-between;font-size:.82rem;color:var(--muted);font-family:var(--f-mono)}
+.slot{font-family:var(--f-mono);font-size:.74rem;color:var(--muted);white-space:nowrap}
+
+/* pills */
+.pill{font-size:.74rem;font-weight:600;padding:2px 9px;border-radius:999px;border:1px solid currentColor;cursor:pointer;background:transparent;white-space:nowrap;line-height:1.5}
+.pill.s-ok{color:var(--ok)} .pill.s-warn{color:var(--warn)} .pill.s-bad{color:var(--bad)} .pill.s-acc{color:var(--accent)} .pill.s-mut{color:var(--muted)}
+.health{display:inline-flex;align-items:center;gap:6px;font-size:.78rem;font-weight:600;white-space:nowrap}
+.health::before{content:"";width:8px;height:8px;border-radius:50%;background:currentColor}
+.health.ok{color:var(--ok)} .health.warn{color:var(--warn)} .health.bad{color:var(--bad)} .health.mut{color:var(--muted)}
+
+/* progress bars */
+.bar{height:6px;background:var(--sunk);border-radius:99px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--c,var(--accent));border-radius:99px}
+.bars{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:6px 10px;align-items:center;font-size:.8rem}
+.bars .lb{color:var(--muted)}
+.bars .vl{font-family:var(--f-mono);font-size:.74rem;color:var(--muted);text-align:right;white-space:nowrap}
+.bars .bar{height:7px}
+.bars .bar.b2 i{background:color-mix(in srgb,var(--c,var(--accent)) 70%,var(--ok))}
+.bars .bar.b3 i{background:color-mix(in srgb,var(--c,var(--accent)) 45%,var(--muted))}
+.overall{display:flex;align-items:baseline;gap:8px}
+.overall b{font-family:var(--f-display);font-size:1.6rem;font-variant-numeric:tabular-nums;line-height:1}
+.overall span{font-size:.78rem;color:var(--muted)}
+
+/* projects */
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:14px}
+.pcard{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:12px;text-decoration:none;color:var(--ink);position:relative;overflow:hidden}
+.pcard::before{content:"";position:absolute;left:0;top:0;right:0;height:4px;background:var(--c)}
+.pcard:hover{border-color:var(--muted)}
+.pcard .top{display:flex;justify-content:space-between;gap:8px;align-items:center}
+.pcard h2{font-size:1.15rem}
+.pcard .goal{color:var(--muted);font-size:.9rem;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.stats{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:.8rem;color:var(--muted)}
+.stats b{color:var(--ink);font-family:var(--f-mono);font-weight:500}
+.next{font-size:.85rem;border-top:1px solid var(--line);padding-top:8px}
+.next span{color:var(--muted)}
+
+/* project page */
+.phead{display:flex;flex-direction:column;gap:10px;margin-bottom:18px}
+.phead .code{font-family:var(--f-mono);font-size:.82rem;color:var(--c);font-weight:500}
+.pcheck{display:grid;grid-template-columns:auto minmax(0,1fr);gap:18px 28px;align-items:center}
+.pfacts{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:.84rem;color:var(--muted);grid-column:1/-1}
+.pfacts b{color:var(--ink);font-family:var(--f-mono);font-weight:500}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:18px;overflow-x:auto}
+.tabs button{border:0;background:none;padding:9px 12px;cursor:pointer;color:var(--muted);font-weight:500;border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap}
+.tabs button.on{color:var(--ink);border-bottom-color:var(--c,var(--accent))}
+.tabs .n{font-family:var(--f-mono);font-size:.72rem;margin-left:4px}
+
+.items{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
+.item{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.item .t{font-weight:600;overflow-wrap:anywhere}
+.item .x{color:var(--muted);font-size:.86rem;overflow-wrap:anywhere;white-space:pre-wrap}
+.item .foot{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:auto;justify-content:space-between}
+.idea .t{font-weight:400;white-space:pre-wrap}
+.sel{user-select:all;font-family:var(--f-mono);font-size:.8rem;overflow-wrap:anywhere}
+
+/* compounds */
+.struct{background:#ffffff;border-radius:8px;border:1px solid var(--line);display:grid;place-items:center;overflow:hidden;aspect-ratio:4/3;max-width:100%}
+.struct canvas,.struct img{max-width:100%;max-height:100%;display:block}
+.struct .ph{color:#7a8886;font-size:.82rem;text-align:center;padding:12px}
+.cmp{cursor:pointer;text-align:left}
+.cmp:hover{border-color:var(--muted)}
+.cmp .code{font-family:var(--f-mono);font-weight:500;color:var(--c,var(--accent))}
+.techs{display:flex;flex-wrap:wrap;gap:4px}
+.tech{font-size:.72rem;padding:1px 7px;border-radius:6px;background:color-mix(in srgb,var(--ok) 16%,transparent);color:var(--ink);white-space:nowrap}
+.tech.miss{background:transparent;border:1px dashed var(--line);color:var(--muted)}
+.cdetail{display:grid;grid-template-columns:minmax(0,360px) minmax(0,1fr);gap:24px;align-items:start}
+.names{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.name{display:inline-flex;align-items:center;gap:4px;background:var(--sunk);border-radius:7px;padding:3px 4px 3px 10px;font-size:.92rem;overflow-wrap:anywhere}
+.name button{border:0;background:none;cursor:pointer;color:var(--muted);padding:0 4px;font-size:1rem;line-height:1}
+.name button:hover{color:var(--bad)}
+.inl{display:flex;gap:6px;flex-wrap:wrap}
+.inl input,.inl select{border:1px solid var(--line);background:var(--bg);border-radius:7px;padding:5px 9px;min-width:0;flex:1 1 160px}
+.props{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 14px;font-size:.9rem;margin:0}
+.props dt{color:var(--muted)}
+.props dd{margin:0;overflow-wrap:anywhere}
+.entry{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.entry .eh{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between}
+.entry .tn{font-weight:600}
+.entry input[type=text],.entry textarea{border:1px solid var(--line);background:var(--bg);border-radius:7px;padding:6px 9px;width:100%}
+.entry textarea{font-family:var(--f-mono);font-size:.82rem;min-height:70px;resize:vertical}
+.files{display:flex;flex-wrap:wrap;gap:8px}
+.file{display:flex;flex-direction:column;gap:4px;width:128px;font-size:.76rem}
+.file a.th{display:grid;place-items:center;height:92px;border:1px solid var(--line);border-radius:7px;background:#fff;overflow:hidden;text-decoration:none;color:#5a6a67;font-family:var(--f-mono);font-weight:500}
+.file a.th img{max-width:100%;max-height:100%}
+.file .fn{display:flex;gap:2px;align-items:center;justify-content:space-between;color:var(--muted)}
+.file .fn span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.file .fn button{border:0;background:none;color:var(--muted);cursor:pointer;padding:0 3px}
+.file .fn button:hover{color:var(--bad)}
+.up{position:relative;overflow:hidden}
+.up input{position:absolute;inset:0;opacity:0;cursor:pointer}
+
+/* search */
+.sform{display:grid;grid-template-columns:minmax(0,1fr) 220px;gap:16px;align-items:start}
+.sform .fields{display:flex;flex-direction:column;gap:12px;min-width:0}
+.sform label{font-size:.8rem;font-weight:600;color:var(--muted);display:block;margin-bottom:4px}
+.sform input[type=text],.sform select{border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:8px 10px;width:100%}
+.sform .opts{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:end}
+.sform .opts>div{flex:1 1 180px;min-width:0}
+.sform .ck{display:flex;gap:8px;align-items:center;font-size:.9rem;flex:0 0 auto}
+
+.timeline{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:18px}
+.timeline .day{display:grid;grid-template-columns:110px minmax(0,1fr);gap:14px}
+.timeline .d{font-family:var(--f-mono);font-size:.8rem;color:var(--muted);padding-top:3px}
+.timeline .evs{display:flex;flex-direction:column;gap:6px;border-left:2px solid var(--line);padding-left:14px}
+.ev{font-size:.92rem;overflow-wrap:anywhere}
+.ev .k{font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;font-weight:600;margin-right:6px}
+.ev.note .k{color:var(--accent)} .ev.done .k{color:var(--ok)}
+.ev .x{white-space:pre-wrap}
+
+/* heatmap */
+.heat{display:grid;grid-template-rows:repeat(7,12px);grid-auto-flow:column;grid-auto-columns:12px;gap:3px;overflow-x:auto}
+.heat i{border-radius:3px;background:var(--sunk)}
+.heat i.l1{background:color-mix(in srgb,var(--ok) 35%,var(--sunk))}
+.heat i.l2{background:color-mix(in srgb,var(--ok) 65%,var(--sunk))}
+.heat i.l3{background:var(--ok)}
+.heat i.now{outline:1.5px solid var(--ink);outline-offset:-1px}
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
+.kpi b{display:block;font-family:var(--f-display);font-size:1.5rem;font-variant-numeric:tabular-nums}
+.kpi span{font-size:.76rem;color:var(--muted)}
+.mini{display:flex;flex-direction:column;gap:14px}
+.mini a{text-decoration:none;color:var(--ink);display:flex;flex-direction:column;gap:6px}
+.mini .r{display:flex;justify-content:space-between;gap:8px;font-size:.9rem;align-items:center}
+.mini .r .v{font-family:var(--f-mono);font-size:.78rem;color:var(--muted)}
+.note{font-size:.85rem;color:var(--muted)}
+.banner{padding:10px 14px;border-radius:var(--r);background:color-mix(in srgb,var(--warn) 14%,var(--surface));border:1px solid color-mix(in srgb,var(--warn) 40%,var(--line));font-size:.9rem;margin-bottom:16px}
+details.done-box summary{cursor:pointer;color:var(--muted);font-size:.9rem;padding:4px 0}
+
+/* modal */
+.modal{position:fixed;inset:0;background:color-mix(in srgb,var(--ink) 45%,transparent);display:grid;place-items:center;padding:16px;z-index:50}
+.sheet{background:var(--surface);border-radius:14px;border:1px solid var(--line);width:min(560px,100%);max-height:calc(100vh - 32px);overflow:auto;padding:20px}
+.sheet form{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.fld{display:flex;flex-direction:column;gap:4px;min-width:0}
+.fld.w{grid-column:1/-1}
+.fld label{font-size:.8rem;font-weight:600;color:var(--muted)}
+.fld input,.fld select,.fld textarea{border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:8px 10px;width:100%}
+.fld textarea{min-height:90px;resize:vertical}
+.fld .hint{font-size:.76rem;color:var(--muted)}
+.fld.chk{flex-direction:row;align-items:center;gap:8px}
+.fld.chk input{width:auto}
+.swatches{display:flex;flex-wrap:wrap;gap:8px}
+.swatches label{width:28px;height:28px;border-radius:50%;background:var(--c);cursor:pointer;display:grid;place-items:center}
+.swatches input{position:absolute;opacity:0;width:0;height:0}
+.swatches input:checked+span{width:10px;height:10px;border-radius:50%;background:var(--surface)}
+.swatches input:focus-visible+span{outline:2px solid var(--ink)}
+.sheet .acts{grid-column:1/-1;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-top:6px}
+.sheet textarea.si{width:100%;min-height:220px;font-family:var(--f-mono);font-size:.82rem;border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:10px}
+.toast{position:fixed;bottom:calc(16px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 16px;border-radius:999px;font-size:.88rem;z-index:60}
+
+@media (max-width:980px){.grid-today{grid-template-columns:minmax(0,1fr)}.cdetail{grid-template-columns:minmax(0,1fr)}.sform{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:760px){
+  .app{grid-template-columns:minmax(0,1fr)}
+  .side{position:static;height:auto;border-right:0;border-bottom:1px solid var(--line);padding-block:12px;padding-right:max(16px,env(safe-area-inset-right,0px));gap:10px}
+  .side .nav.main-nav{flex-direction:row;overflow-x:auto}
+  .side .nav.main-nav a{white-space:nowrap}
+  .side .projs,.side .lbl-p,.side-foot{display:none}
+  .main{padding-left:max(16px,env(safe-area-inset-left,0px))}
+  .sheet form{grid-template-columns:1fr}
+  .timeline .day{grid-template-columns:1fr;gap:4px}
+  .pcheck{grid-template-columns:1fr}
+}
+@media (prefers-reduced-motion:no-preference){.task,.item,.pcard{transition:border-color .15s}}
+</style>
+
+<div id="app" class="app"></div>
+<div id="modal" class="modal" hidden></div>
+<div id="toast" class="toast" hidden></div>
+
+<script>
+(function(){
+const COLORS=['#3b6fe0','#12998a','#d08a1a','#d0457a','#7a5bd6','#6d8b2a','#5b7085','#c0573a'];
+/* default activity types: list order = order of the day (reactions first, desk work last).
+   hours = default hands-on time; keys = words that detect the type from a task title. All editable in Settings. */
+const DEF_KINDS=[
+  {name:'Synthesis',hours:3,keys:'synth, reaction, coupling, set up, setup, reflux, prepar, scale-up, scale up, repeat, stir, protect, deprotect, reduc, oxidi, alkylat, cycliz'},
+  {name:'Workup / purification',hours:2,keys:'column, flash, chromatog, recrystal, distil, extract, workup, work-up, filtr, purif, evapor, rotavap, sublim'},
+  {name:'Characterization',hours:1.5,keys:'nmr, hrms, ms, ir, uv, mass spec, x-ray, xray, hplc, gc-ms, characteri, spectr, melting, elemental, optical rotation, fluoresc, voltammetr'},
+  {name:'Meeting',hours:1,keys:'meeting, call, seminar, discuss, supervisor'},
+  {name:'Orders & inventory',hours:0.5,keys:'order, buy, purchase, inventory, stock'},
+  {name:'Writing',hours:2,keys:'write, draft, report, thesis, manuscript, si, supporting, slides, presentation, poster, abstract'},
+  {name:'Reading',hours:1,keys:'read, paper, review, literature, reaxys, scifinder'},
+  {name:'Other',hours:1,keys:''}
+];
+const reCache=new Map();
+const keyRes=keys=>{if(!reCache.has(keys))reCache.set(keys,String(keys||'').split(',').map(k=>k.trim().toLowerCase()).filter(Boolean).map(k=>{const e=k.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');return new RegExp('(^|[^\\p{L}\\p{N}])'+e+(k.length<=3?'(?![\\p{L}\\p{N}])':''),'iu')}));return reCache.get(keys)};
+/* the type whose keyword appears earliest in the title wins */
+function guessKind(title){const ks=cfg().kinds;let best=null,pos=1e9;for(const k of ks)for(const re of keyRes(k.keys)){const m=re.exec(title||'');if(m&&m.index<pos){pos=m.index;best=k.name}}return best||(ks.find(k=>/^other$/i.test(k.name))||ks[ks.length-1]||{name:'Other'}).name}
+const TECH=[
+  ['¹H NMR','400 MHz, CDCl₃','δ 7.26 (d, J = 8.1 Hz, 2H), …'],
+  ['¹³C{¹H} NMR','101 MHz, CDCl₃','δ 170.2, 138.5, …'],
+  ['¹⁹F NMR','376 MHz, CDCl₃','δ −62.8 (s, 3F)'],
+  ['³¹P NMR','162 MHz, CDCl₃','δ …'],
+  ['2D NMR (COSY, HSQC, HMBC, NOESY)','',''],
+  ['HRMS','ESI-TOF, m/z','[M+H]⁺ calcd for C₁₀H₁₂NO₂ 178.0863, found 178.0861'],
+  ['IR','ATR, neat, cm⁻¹','ν 3320, 1715, 1602'],
+  ['UV-Vis','CH₂Cl₂, 10⁻⁵ M','λmax (ε) 312 nm (1.2 × 10⁴ M⁻¹ cm⁻¹)'],
+  ['Fluorescence','',''],
+  ['Melting point','','m.p. 132–134 °C'],
+  ['Optical rotation','c 1.0, CHCl₃, 20 °C','[α]D +35.2'],
+  ['HPLC / chiral HPLC','column, eluent, flow','tR 12.3 min (major), 14.1 min (minor); 96:4 er'],
+  ['X-ray','','CCDC …'],
+  ['Elemental analysis','','Anal. calcd for …: C, …; H, …; N, …. Found: …'],
+  ['TLC','eluent','Rf 0.35'],
+  ['Yield','','72% (1.23 g), white solid'],
+  ['Other','','']
+];
+const CORE=['¹H NMR','¹³C{¹H} NMR','HRMS'];
+const SHORT={'¹H NMR':'¹H','¹³C{¹H} NMR':'¹³C','¹⁹F NMR':'¹⁹F','³¹P NMR':'³¹P','2D NMR (COSY, HSQC, HMBC, NOESY)':'2D','Melting point':'m.p.','Optical rotation':'[α]D','HPLC / chiral HPLC':'HPLC','Elemental analysis':'EA'};
+const ST={
+  projects:[['attivo','Active','s-ok'],['pausa','On hold','s-warn'],['concluso','Completed','s-mut']],
+  ideas:[['nuova','New','s-acc'],['valutare','To evaluate','s-warn'],['promossa','Became a task','s-ok'],['scartata','Dropped','s-mut']],
+  papers:[['leggere','To read','s-warn'],['letto','Read','s-mut'],['chiave','Key paper','s-acc']],
+  people:[['attiva','Active','s-ok'],['contattare','To contact','s-warn'],['attesa','Awaiting reply','s-acc'],['conclusa','Ended','s-mut']]
+};
+const SCHEMA={
+  projects:{one:'project',f:[
+    ['name','Project name','text',{req:1,w:1}],['code','Short code','text',{ph:'e.g. PRJ-01'}],['status','Status','status'],
+    ['color','Colour','color',{w:1}],['goal','Goal','textarea',{w:1,ph:'Target molecule, research question, deadline…'}],
+    ['deadline','Project deadline','date'],['fmProject','Name on FindMolecule','text'],['fmUrl','FindMolecule project link','url',{w:1}]]},
+  tasks:{one:'task',f:[
+    ['title','What to do','text',{req:1,w:1,ph:'e.g. Column of crude 14b (EtOAc/hexane 1:4)'}],['projectId','Project','project'],
+    ['kind','Activity type','select',{opts:()=>[['','Guess from the title'],...cfg().kinds.map(k=>[k.name,`${k.name} (default ${fh(k.hours)})`])]}],
+    ['hours','Real time needed (hours)','number',{ph:'use default',hint:'Write the real hands-on time for this task. Leave empty to use the default of its activity type (Settings).'}],
+    ['due','Due date','date'],['priority','Priority','select',{opts:[['1','High'],['2','Medium'],['3','Low']]}],
+    ['focus','Must do today','focus'],['elnRef','ELN experiment ref.','text',{ph:'e.g. AB-042'}],['elnUrl','FindMolecule experiment link','url'],
+    ['notes','Notes','textarea',{w:1}]]},
+  ideas:{one:'idea',f:[['text','Idea','textarea',{req:1,w:1}],['projectId','Project','project'],['status','Status','status']]},
+  compounds:{one:'compound',f:[
+    ['code','Compound code','text',{req:1,ph:'e.g. 14b'}],['projectId','Project','project'],
+    ['names','Names','lines',{w:1,ph:'One per line: IUPAC name, trivial name, lab code…',hint:'One name per line. You can also add or remove names from the compound page.'}],
+    ['smiles','SMILES','text',{w:1,ph:'e.g. COC(=O)c1ccc(N)cc1',hint:'The structure is drawn from the SMILES and used by Search. In ChemDraw: select the structure → Edit → Copy As → SMILES.'}],
+    ['formula','Molecular formula','text',{ph:'C₁₀H₁₁NO₂'}],['mw','MW (g/mol)','text',{ph:'177.20'}],
+    ['elnRef','ELN experiment ref.','text',{ph:'e.g. AB-042'}],['elnUrl','FindMolecule experiment link','url'],
+    ['notes','Notes','textarea',{w:1,ph:'Appearance, stability, storage…'}]]},
+  papers:{one:'paper',f:[
+    ['title','Title','text',{req:1,w:1}],['authors','Authors','text',{w:1,ph:'e.g. Smith, J.; Rossi, M.'}],['journal','Journal','text',{ph:'e.g. J. Am. Chem. Soc.'}],['year','Year','text'],
+    ['doi','DOI','text',{ph:'10.1021/…'}],['url','Link (if no DOI)','url'],['status','Status','status'],['projectId','Project','project'],
+    ['notes','Why it matters','textarea',{w:1,ph:'Reaction conditions, SI procedure, reference spectra…'}]]},
+  people:{one:'collaborator',f:[
+    ['name','Name','text',{req:1}],['affiliation','Group / institution','text'],['role','Role in the project','text',{w:1,ph:'e.g. Crystallography, DFT, biological assays'}],
+    ['email','Email','text'],['status','Status','status'],['lastContact','Last contact','date'],['projectId','Project','project'],
+    ['notes','Notes','textarea',{w:1,ph:'Samples sent, agreements, next steps…'}]]},
+  fmlinks:{one:'FindMolecule link',f:[
+    ['label','Description','text',{req:1,w:1,ph:'e.g. Suzuki coupling, 2 g scale-up'}],['kind','Type','select',{opts:[['eln','ELN experiment'],['inv','Inventory item'],['altro','Other']]}],
+    ['ref','Code','text',{ph:'e.g. AB-042 or bottle no.'}],['url','Link','url',{req:1,w:1,ph:'Copy the address from the FindMolecule page'}],['projectId','Project','project']]},
+  log:{one:'progress note',f:[['date','Date','date'],['projectId','Project','project'],['text','What happened','textarea',{req:1,w:1}]]}
+};
+const COLS=Object.keys(SCHEMA);
+const ALL=[...COLS,'settings','plans'];
+const S={}; ALL.forEach(c=>S[c]=[]);
+let db=null, assets=null, phase='loading', slow=false; const loaded=new Set();
+const ui={tab:{}, openC:'', s:{q:'',sub:'',pid:'',miss:false}};
+try{const st=JSON.parse(localStorage.getItem('lab-ui')||'{}');Object.assign(ui,st);ui.s=Object.assign({q:'',sub:'',pid:'',miss:false},st.s||{})}catch(e){}
+const saveUi=()=>{try{localStorage.setItem('lab-ui',JSON.stringify(ui))}catch(e){}};
+const LOC='en-GB';
+
+/* ---------- utils ---------- */
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pad=n=>String(n).padStart(2,'0');
+const ds=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+const today=()=>ds(new Date());
+const pd=s=>{const [y,m,d]=s.split('-').map(Number);return new Date(y,m-1,d)};
+const addDays=(s,n)=>{const d=pd(s);d.setDate(d.getDate()+n);return ds(d)};
+const diff=(a,b)=>Math.round((pd(a)-pd(b))/864e5);
+const fmt=(s,o)=>s?pd(s).toLocaleDateString(LOC,o||{weekday:'short',day:'numeric',month:'short'}):'';
+const isoWeek=d=>{const t=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));const n=t.getUTCDay()||7;t.setUTCDate(t.getUTCDate()+4-n);const y=new Date(Date.UTC(t.getUTCFullYear(),0,1));return Math.ceil(((t-y)/864e5+1)/7)};
+const safeUrl=u=>/^https?:\/\//i.test(u||'')?u:'';
+const LOCAL_BLOBS={};
+const blob=id=>LOCAL_BLOBS[id]||'/_blob/'+encodeURIComponent(id);
+const uid=()=>Math.random().toString(36).slice(2,10);
+const proj=id=>S.projects.find(p=>p.id===id);
+const stOf=(col,v)=>(ST[col]||[]).find(s=>s[0]===v)||(ST[col]||[])[0];
+const ofP=(col,pid)=>S[col].filter(x=>x.projectId===pid);
+const projSorted=()=>{const o={attivo:0,pausa:1,concluso:2};return [...S.projects].sort((a,b)=>(o[a.status]??0)-(o[b.status]??0)||(a.created||0)-(b.created||0))};
+const liveProj=t=>{const p=proj(t.projectId);return p&&p.status!=='concluso'&&p.status!=='pausa'};
+const taskSort=(a,b)=>(a.due||'9999')<(b.due||'9999')?-1:(a.due||'9999')>(b.due||'9999')?1:((+a.priority||2)-(+b.priority||2))||((a.created||0)-(b.created||0));
+const fh=h=>{h=Math.round(h*4)/4;if(h<=0)return '0 h';const H=Math.floor(h),m=Math.round((h-H)*60);return H&&m?`${H} h ${m}′`:H?`${H} h`:`${m}′`};
+function toast(m){const t=document.getElementById('toast');t.textContent=m;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>t.hidden=true,2600)}
+function fail(e){console.error(e);toast(e&&e.code==='quota_exceeded'?'Storage is full: delete a few items.':'Could not save. Try again in a moment.')}
+
+/* ---------- settings & time estimates ---------- */
+function cfg(){
+  const s=S.settings.find(x=>x.id==='main')||{};
+  const kinds=Array.isArray(s.kinds)&&s.kinds.length?s.kinds:DEF_KINDS.map(k=>Object.assign({},k,s.hours&&s.hours[k.name]>0?{hours:+s.hours[k.name]}:{}));
+  return{day:+s.day>0?+s.day:8,start:s.start||'09:00',kinds};
+}
+const kindDef=name=>cfg().kinds.find(k=>k.name===name);
+const kindOf=t=>t.kind&&kindDef(t.kind)?t.kind:guessKind(t.title);
+const kindIdx=name=>{const i=cfg().kinds.findIndex(k=>k.name===name);return i<0?99:i};
+const est=t=>{const h=parseFloat(t.hours);return h>0?h:(+(kindDef(kindOf(t))||{}).hours||1)};
+const isGuess=t=>!(parseFloat(t.hours)>0);
+
+/* ---------- data ---------- */
+async function add(col,data){try{return await db.collection(col).add(Object.assign({created:Date.now()},data))}catch(e){fail(e)}}
+async function upd(col,id,data){try{await db.doc(col+'/'+id).update(data)}catch(e){fail(e)}}
+async function put(col,id,data){try{await db.doc(col+'/'+id).set(data)}catch(e){fail(e)}}
+async function del(col,id){try{await db.doc(col+'/'+id).delete()}catch(e){fail(e)}}
+async function dropAsset(id){if(!assets||!id)return;try{await assets.delete(id)}catch(e){console.warn(e)}}
+
+/* ---------- project progress check ---------- */
+function progress(pid){
+  const p=proj(pid)||{},ts=ofP('tasks',pid),open=ts.filter(t=>!t.done),td=today();
+  const hDone=ts.filter(t=>t.done).reduce((s,t)=>s+est(t),0), hAll=ts.reduce((s,t)=>s+est(t),0);
+  const cs=ofP('compounds',pid), cFull=cs.filter(c=>!missing(c).length).length;
+  const ps=ofP('papers',pid), pRead=ps.filter(x=>x.status!=='leggere').length;
+  const overdue=open.filter(t=>t.due&&t.due<td).length;
+  const acts=[...ts.filter(t=>t.done&&t.doneAt).map(t=>t.doneAt),...ofP('log',pid).map(l=>l.date)].filter(Boolean).sort();
+  const last=acts.length?acts[acts.length-1]:'';
+  const since=last?diff(td,last):(p.created?Math.floor((Date.now()-p.created)/864e5):0);
+  const pc=(a,b)=>b?Math.round(a/b*100):0;
+  const bars=[{k:'Tasks',v:pc(hDone,hAll),t:`${ts.filter(t=>t.done).length}/${ts.length} · ${fh(hAll-hDone)} left`,n:ts.length,cls:''},
+    {k:'Characterization',v:pc(cFull,cs.length),t:`${cFull}/${cs.length} complete`,n:cs.length,cls:'b2'},
+    {k:'Literature',v:pc(pRead,ps.length),t:`${pRead}/${ps.length} read`,n:ps.length,cls:'b3'}];
+  const used=bars.filter(b=>b.n);
+  const overall=used.length?Math.round((pc(hDone,hAll)*(ts.length?3:0)+pc(cFull,cs.length)*(cs.length?2:0)+pc(pRead,ps.length)*(ps.length?1:0))/((ts.length?3:0)+(cs.length?2:0)+(ps.length?1:0))):0;
+  let health;
+  if(p.status==='concluso')health=['mut','Completed'];
+  else if(p.status==='pausa')health=['mut','On hold'];
+  else if(p.deadline&&p.deadline<td&&open.length)health=['bad','Past deadline'];
+  else if(overdue)health=['bad',`${overdue} overdue`];
+  else if(since>=14&&(ts.length||p.created))health=['warn',`No activity for ${since} d`];
+  else if(p.deadline&&open.length){const daysLeft=diff(p.deadline,td),need=(hAll-hDone)/cfg().day;health=need>daysLeft*0.6?['warn',`Tight: ${fh(hAll-hDone)} left, ${daysLeft} d to deadline`]:['ok','On track']}
+  else health=['ok','On track'];
+  return{bars,overall,health,last,since,overdue,hLeft:hAll-hDone,open:open.length};
+}
+const barsHtml=(g,only)=>`<div class="bars">${g.bars.filter(b=>!only||b.n).map(b=>`<span class="lb">${b.k}</span><div class="bar ${b.cls}" role="progressbar" aria-label="${b.k}" aria-valuenow="${b.v}" aria-valuemin="0" aria-valuemax="100"><i style="width:${b.v}%"></i></div><span class="vl">${b.n?b.v+'%':'—'}</span>`).join('')}</div>`;
+const healthHtml=g=>`<span class="health ${g.health[0]}">${esc(g.health[1])}</span>`;
+
+/* ---------- routing ---------- */
+const VIEWS=['today','projects','search','settings'];
+const route=()=>{const h=location.hash.slice(1)||'today';if(h.startsWith('p-'))return{v:'p',id:h.slice(2)};return{v:VIEWS.includes(h)?h:'today'}};
+addEventListener('hashchange',()=>{render();scrollTo(0,0)});
+
+/* ---------- pieces ---------- */
+const ICON={
+  check:'<svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.2 3L13 4.5"/></svg>',
+  star:'<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/></svg>',
+  starO:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/></svg>',
+  edit:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg>',
+  plus:'<svg width="14" height="14" viewBox="0 0 16 16" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 3v10M3 8h10"/></svg>',
+  ext:'<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M9 3h4v4M13 3L7 9M11 10v3H3V5h3"/></svg>',
+  up:'<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 11V3M4.5 6.5L8 3l3.5 3.5M3 13h10"/></svg>',
+  plan:'<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="2" y="3" width="12" height="11" rx="2"/><path d="M2 6.5h12M5 1.5v3M11 1.5v3M5 9.5h3M5 11.8h5"/></svg>',
+  flask:'<svg width="26" height="26" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 4h8M13.5 4v8.5L6 25.5A2 2 0 0 0 7.8 28.5h16.4a2 2 0 0 0 1.8-3L18.5 12.5V4"/><path d="M9 20h14" stroke="var(--accent)"/><circle cx="14" cy="24" r="1.3" fill="var(--accent)" stroke="none"/><circle cx="19" cy="23" r="1" fill="var(--accent)" stroke="none"/></svg>'
+};
+const projChip=pid=>{const p=proj(pid);return p?`<a class="chip" style="--c:${p.color||COLORS[0]}" href="#p-${esc(p.id)}"><span class="dot"></span>${esc(p.code||p.name)}</a>`:''};
+const pill=(col,item)=>{const s=stOf(col,item.status);return s?`<button class="pill ${s[2]}" data-act="cycle" data-col="${col}" data-id="${esc(item.id)}" title="Change status">${s[1]}</button>`:''};
+const editBtn=(col,id)=>`<button class="btn ghost" data-act="edit" data-col="${col}" data-id="${esc(id)}" aria-label="Edit">${ICON.edit}</button>`;
+
+function dueLabel(t){
+  if(!t.due) return '';
+  const d=diff(t.due,today());
+  if(t.done) return `<span class="due">${fmt(t.due)}</span>`;
+  if(d<0) return `<span class="due late">${-d} day${d===-1?'':'s'} overdue</span>`;
+  if(d===0) return `<span class="due today">due today</span>`;
+  if(d===1) return `<span class="due">due tomorrow</span>`;
+  return `<span class="due">due ${fmt(t.due)}</span>`;
+}
+function taskRow(t,o={}){
+  const foc=t.focus===today();
+  const eln=t.elnRef||t.elnUrl?(safeUrl(t.elnUrl)?`<a href="${esc(t.elnUrl)}" target="_blank" rel="noopener" class="mono">ELN ${esc(t.elnRef||'')} ${ICON.ext}</a>`:`<span class="mono">ELN ${esc(t.elnRef)}</span>`):'';
+  const h=est(t), long=h>cfg().day;
+  return `<li class="task p${esc(t.priority||2)} ${t.done?'done':''}">
+    <button class="check" data-act="toggle" data-id="${esc(t.id)}" aria-label="${t.done?'Mark as not done':'Mark as done'}">${ICON.check}</button>
+    <div style="min-width:0"><div class="ttl">${esc(t.title)}</div>
+      <div class="meta">${o.slot?`<span class="slot">${o.slot}</span>`:''}<button class="hrs ${isGuess(t)?'guess':''}" data-act="edit" data-col="tasks" data-id="${esc(t.id)}" title="${isGuess(t)?'Default time for this activity type. Click to write the real time.':'Real time you set. Click to change it.'}">${isGuess(t)?'~':''}${fh(h)}</button>${o.proj!==false?projChip(t.projectId):''}<span>${esc(kindOf(t))}</span>${dueLabel(t)}${eln}${t.done&&t.doneAt?`<span>done ${fmt(t.doneAt)}</span>`:''}${+t.priority===1&&!t.done?'<span style="color:var(--bad)">high priority</span>':''}${long?'<span style="color:var(--warn)">longer than a workday</span>':''}</div>
+      ${t.notes?`<div class="meta" style="white-space:pre-wrap">${esc(t.notes)}</div>`:''}</div>
+    <div class="tact">${o.unplan?`<button class="btn ghost" data-act="unplan" data-id="${esc(t.id)}" title="Take out of today’s plan">×</button>`:''}${t.done?'':`<button class="btn ghost star ${foc?'on':''}" data-act="focus" data-id="${esc(t.id)}" title="${foc?'No longer a must for today':'Must do today: the planner always includes it'}">${foc?ICON.star:ICON.starO}</button>`}${editBtn('tasks',t.id)}</div></li>`;
+}
+const taskList=(arr,o,empty)=>arr.length?`<ul class="list">${arr.map(t=>taskRow(t,o)).join('')}</ul>`:`<div class="empty">${empty}</div>`;
+const projOptions=sel=>projSorted().filter(p=>p.status!=='concluso'||p.id===sel).map(p=>`<option value="${esc(p.id)}" ${p.id===sel?'selected':''}>${esc(p.code?p.code+' · '+p.name:p.name)}</option>`).join('');
+
+function quickTask(pid){
+  const fixed=!!pid, k=esc(pid||'all');
+  if(!fixed&&!S.projects.filter(p=>p.status!=='concluso').length) return `<div class="empty">Tasks belong to a project. <a href="#projects">Create your first project</a> to start adding tasks.</div>`;
+  return `<form class="qa" data-form="qtask" ${fixed?`data-pid="${esc(pid)}"`:''}>
+    <input type="text" id="qt-title-${k}" placeholder="New task… (press Enter to add)" autocomplete="off" aria-label="New task">
+    ${fixed?'':`<select id="qt-proj" aria-label="Project">${projOptions(ui.lastProj&&proj(ui.lastProj)?ui.lastProj:'')}</select>`}
+    <input type="number" id="qt-hrs-${k}" min="0.25" step="0.25" placeholder="hours" aria-label="Hours needed (optional)" title="Hours needed. Leave empty to estimate from the type.">
+    <input type="date" id="qt-due-${k}" value="${fixed?'':today()}" aria-label="Due date">
+    <button class="btn pri" type="submit">${ICON.plus} Add</button></form>`;
+}
+
+/* ---------- daily work planner ---------- */
+function planScore(t,td){
+  let s={1:30,2:15,3:6}[+t.priority||2]||15;
+  if(t.focus===td)s+=1000;
+  if(t.due){const d=diff(t.due,td);if(d<0)s+=80+Math.min(-d,14)*4;else if(d===0)s+=70;else if(d<=14)s+=45/(d+0.5)}
+  if(t.created)s+=Math.min((Date.now()-t.created)/864e5,20)*.4;
+  const p=proj(t.projectId);if(p&&p.deadline){const d=diff(p.deadline,td);if(d>=0&&d<=21)s+=12*(1-d/21)}
+  return s;
+}
+function buildPlan(){
+  const td=today(),C=cfg(),cap=Math.round(C.day*4);
+  const doneToday=S.tasks.filter(t=>t.done&&t.doneAt===td);
+  const used=Math.round(doneToday.reduce((s,t)=>s+est(t),0)*4);
+  const free=Math.max(0,cap-used);
+  const cand=S.tasks.filter(t=>!t.done&&liveProj(t)).map(t=>({t,w:Math.max(1,Math.min(cap,Math.round(est(t)*4))),v:planScore(t,td)}));
+  // 0/1 knapsack on quarter-hours: best total priority that fits the free time
+  const n=cand.length,best=Array(free+1).fill(0),keep=cand.map(()=>new Uint8Array(free+1));
+  for(let i=0;i<n;i++){const {w,v}=cand[i];for(let c=free;c>=w;c--){if(best[c-w]+v>best[c]){best[c]=best[c-w]+v;keep[i][c]=1}}}
+  let c=free;const pick=[];for(let i=n-1;i>=0;i--){if(keep[i][c]){pick.push(cand[i].t);c-=cand[i].w}}
+  pick.sort((a,b)=>kindIdx(kindOf(a))-kindIdx(kindOf(b))||planScore(b,td)-planScore(a,td));
+  return{date:td,ids:[...doneToday.map(t=>t.id),...pick.map(t=>t.id)],day:C.day,made:Date.now()};
+}
+const todayPlan=()=>S.plans.find(p=>p.id===today());
+function clock(start,h){const [H,M]=start.split(':').map(Number);const m=H*60+M+Math.round(h*60);return pad(Math.floor(m/60)%24)+':'+pad(m%60)}
+
+/* ---------- views ---------- */
+function vToday(){
+  const td=today(), C=cfg(), open=S.tasks.filter(t=>!t.done&&liveProj(t));
+  const plan=todayPlan(), planIds=new Set(plan?plan.ids:[]);
+  const late=open.filter(t=>t.due&&t.due<td&&!planIds.has(t.id)).sort(taskSort);
+  const dueNow=open.filter(t=>(t.due===td||t.focus===td)&&!planIds.has(t.id)).sort(taskSort);
+  const soon=open.filter(t=>t.due>td&&t.due<=addDays(td,7)&&!planIds.has(t.id)).sort(taskSort);
+  const d=new Date(), dateTxt=d.toLocaleDateString(LOC,{weekday:'long',day:'numeric',month:'long'});
+  const weekStart=addDays(td,-((d.getDay()+6)%7)), doneWeek=S.tasks.filter(t=>t.done&&t.doneAt>=weekStart).length;
+  let planHtml;
+  if(plan){
+    const ts=plan.ids.map(id=>S.tasks.find(t=>t.id===id)).filter(Boolean);
+    const tot=ts.reduce((s,t)=>s+est(t),0), done=ts.filter(t=>t.done), dh=done.reduce((s,t)=>s+est(t),0);
+    let acc=0;const rows=ts.map(t=>{const slot=clock(C.start,acc)+'–'+clock(C.start,acc+est(t));acc+=est(t);return taskRow(t,{slot,unplan:!t.done})}).join('');
+    planHtml=`<section class="daycard"><div class="row" style="justify-content:space-between"><div class="sec-h"><h3>Daily work</h3><span class="cnt">${done.length}/${ts.length} done</span></div>
+      <div class="row"><button class="btn sm" data-act="plan">${ICON.plan} Re-plan</button><button class="btn sm ghost" data-act="settings">Work settings</button></div></div>
+      <div class="daybar" title="${fh(tot)} planned of ${fh(C.day)}">${ts.map(t=>`<i class="${t.done?'done':''}" style="width:${est(t)/Math.max(C.day,tot)*100}%;--c:${(proj(t.projectId)||{}).color||'var(--accent)'}" title="${esc(t.title)} · ${fh(est(t))}"></i>`).join('')}</div>
+      <div class="dayleg"><span>${fh(dh)} done · ${fh(Math.max(0,tot-dh))} to go</span><span>${fh(tot)} of ${fh(C.day)}${tot<C.day-0.25?` · ${fh(C.day-tot)} free`:''}</span></div>
+      ${ts.length?`<ul class="list">${rows}</ul>`:'<div class="empty">Nothing to plan: no open tasks in active projects.</div>'}
+      <div class="note">Times start at ${esc(C.start)}. Reactions go first so they run while you do the rest; desk work goes last. ★ marks a task as a must for today.</div></section>`;
+  } else {
+    planHtml=`<section class="daycard"><div class="row" style="justify-content:space-between;align-items:center"><div><h2>Daily work</h2><div class="note">Picks the open tasks from all your active projects that fit best in a ${fh(C.day)} lab day, by deadline, priority and how long each one takes.</div></div>
+      <div class="row"><button class="btn pri big" data-act="plan">${ICON.plan} Plan daily work</button><button class="btn ghost" data-act="settings">Work settings</button></div></div></section>`;
+  }
+  return `<div class="head"><div><h1>${esc(dateTxt)}</h1><div class="sub">Week ${isoWeek(d)} · ${open.length} open tasks · ${doneWeek} done this week</div></div></div>
+  <div class="grid-today"><div class="stack">
+    ${planHtml}
+    ${quickTask('')}
+    ${late.length?`<section class="sec"><div class="sec-h bad"><h3>Overdue${plan?', not in today’s plan':''}</h3><span class="cnt">${late.length}</span></div>${taskList(late,{},'')}</section>`:''}
+    ${dueNow.length?`<section class="sec"><div class="sec-h"><h3>Due today${plan?', not in the plan':''}</h3><span class="cnt">${dueNow.length}</span></div>${taskList(dueNow,{},'')}</section>`:''}
+    <section class="sec"><div class="sec-h"><h3>Next 7 days</h3><span class="cnt">${soon.length}</span></div>${taskList(soon,{},'Nothing due in the coming week.')}</section>
+  </div>
+  <div class="stack">${sideProjects()}${sideActivity()}${sideWaiting()}</div></div>`;
+}
+function sideActivity(){
+  const td=today(), counts={};
+  S.tasks.forEach(t=>{if(t.done&&t.doneAt)counts[t.doneAt]=(counts[t.doneAt]||0)+1});
+  S.log.forEach(l=>{if(l.date)counts[l.date]=(counts[l.date]||0)+1});
+  const dow=(new Date().getDay()+6)%7, start=addDays(td,-(7*11+dow));
+  let cells='';for(let i=0;i<7*12;i++){const day=addDays(start,i);if(day>td){cells+='<i style="visibility:hidden"></i>';continue}const c=counts[day]||0;cells+=`<i class="${c>=4?'l3':c>=2?'l2':c>=1?'l1':''} ${day===td?'now':''}" title="${fmt(day)}: ${c}"></i>`}
+  let streak=0,k=counts[td]?td:addDays(td,-1);while(counts[k]){streak++;k=addDays(k,-1)}
+  const d30=addDays(td,-29), done30=S.tasks.filter(t=>t.done&&t.doneAt>=d30);
+  return `<section class="panel sec"><div class="sec-h"><h3>Activity · 12 weeks</h3></div><div class="heat" aria-label="Activity over the last 3 months">${cells}</div>
+  <div class="kpis"><div class="kpi"><b>${streak}</b><span>day streak</span></div><div class="kpi"><b>${done30.length}</b><span>tasks in 30 d</span></div><div class="kpi"><b>${Math.round(done30.reduce((s,t)=>s+est(t),0))}</b><span>hours in 30 d</span></div></div></section>`;
+}
+function sideProjects(){
+  const act=projSorted().filter(p=>p.status==='attivo');
+  return `<section class="panel sec"><div class="sec-h"><h3>Project progress</h3><span class="cnt">${act.length} active</span></div>
+  ${act.length?`<div class="mini">${act.map(p=>{const g=progress(p.id);return `<a href="#p-${esc(p.id)}" style="--c:${p.color}"><div class="r"><span class="row" style="gap:8px;min-width:0"><span class="dot"></span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p.name)}</span></span><span class="v">${g.overall}%</span></div>${barsHtml(g,true)||''}${healthHtml(g)}</a>`}).join('')}</div>`:`<div class="note">No active projects. <a href="#projects">Create a project</a>.</div>`}</section>`;
+}
+function sideWaiting(){
+  const ppl=S.people.filter(p=>(p.status==='contattare'||p.status==='attesa')&&proj(p.projectId));
+  return `<section class="panel sec"><div class="sec-h"><h3>Collaborators to follow up</h3></div>
+    ${ppl.length?`<div class="mini">${ppl.slice(0,6).map(p=>`<div class="r"><span>${esc(p.name)} ${projChip(p.projectId)}</span><span class="v">${p.status==='attesa'?'awaiting':'to contact'}${p.lastContact?' · '+diff(today(),p.lastContact)+' d':''}</span></div>`).join('')}</div>`:'<div class="note">No pending collaborations.</div>'}</section>`;
+}
+
+function vProjects(){
+  const ps=projSorted();
+  const card=p=>{const g=progress(p.id);const nx=ofP('tasks',p.id).filter(t=>!t.done).sort(taskSort)[0];
+    return `<a class="pcard" href="#p-${esc(p.id)}" style="--c:${p.color||COLORS[0]}"><div class="top"><span class="mono" style="color:var(--c)">${esc(p.code||'')}</span>${healthHtml(g)}</div>
+    <h2>${esc(p.name)}</h2>${p.goal?`<div class="goal">${esc(p.goal)}</div>`:''}
+    <div class="overall"><b>${g.overall}%</b><span>overall progress${p.deadline?` · deadline ${fmt(p.deadline,{day:'numeric',month:'short',year:'numeric'})}`:''}</span></div>
+    ${barsHtml(g)}
+    <div class="stats"><span><b>${g.open}</b> open tasks</span><span><b>${fh(g.hLeft)}</b> of work left</span><span><b>${ofP('ideas',p.id).filter(i=>i.status!=='scartata'&&i.status!=='promossa').length}</b> ideas</span><span><b>${ofP('people',p.id).length}</b> collab.</span></div>
+    ${nx?`<div class="next"><span>Next:</span> ${esc(nx.title)}${nx.due?` <span>· ${fmt(nx.due)}</span>`:''}</div>`:''}</a>`};
+  const groups=[['attivo','Active'],['pausa','On hold'],['concluso','Completed']];
+  return `<div class="head"><div><h1>Projects</h1><div class="sub">${ps.length} project${ps.length===1?'':'s'} · everything (tasks, ideas, compounds, literature, collaborators) lives inside a project</div></div><button class="btn pri" data-act="new" data-col="projects">${ICON.plus} New project</button></div>
+  ${ps.length?groups.map(([k,l])=>{const g=ps.filter(p=>(p.status||'attivo')===k);return g.length?`<section class="sec" style="margin-bottom:26px"><div class="sec-h"><h3>${l}</h3><span class="cnt">${g.length}</span></div><div class="cards">${g.map(card).join('')}</div></section>`:''}).join(''):
+  `<div class="empty">No projects yet. Create the first one with “New project”: each project gets tasks, ideas, compounds with characterization, literature, collaborators, FindMolecule links, a progress log and its own progress bars.</div>`}`;
+}
+
+const TABS=[['tasks','Tasks'],['compounds','Characterization'],['ideas','Ideas'],['papers','Literature'],['people','Collaborators'],['fmlinks','FindMolecule'],['log','Progress log']];
+function vProject(id){
+  const p=proj(id);
+  if(!p) return phase==='ready'?`<div class="empty">This project no longer exists. <a href="#projects">Back to projects</a>.</div>`:'';
+  const tab=ui.tab[id]||'tasks', g=progress(id);
+  const counts={tasks:ofP('tasks',id).filter(t=>!t.done).length,ideas:ofP('ideas',id).filter(i=>i.status!=='scartata'&&i.status!=='promossa').length,compounds:ofP('compounds',id).length,papers:ofP('papers',id).length,people:ofP('people',id).length,fmlinks:ofP('fmlinks',id).length,log:ofP('log',id).length};
+  return `<div style="--c:${p.color||COLORS[0]}"><div class="phead">
+    <div class="row" style="justify-content:space-between"><div class="row"><span class="code">${esc(p.code||'')}</span>${pill('projects',p)}</div>
+    <div class="row">${safeUrl(p.fmUrl)?`<a class="btn" href="${esc(p.fmUrl)}" target="_blank" rel="noopener">FindMolecule ${ICON.ext}</a>`:''}<button class="btn" data-act="edit" data-col="projects" data-id="${esc(id)}">${ICON.edit} Edit</button></div></div>
+    <h1>${esc(p.name)}</h1>${p.goal?`<div style="color:var(--muted);max-width:70ch;white-space:pre-wrap">${esc(p.goal)}</div>`:''}
+    <div class="panel pcheck"><div class="overall" style="flex-direction:column;align-items:flex-start;gap:4px"><b>${g.overall}%</b><span>overall</span>${healthHtml(g)}</div>
+      <div style="min-width:0;max-width:560px">${barsHtml(g)}</div>
+      <div class="pfacts"><span><b>${g.open}</b> open tasks</span><span><b>${fh(g.hLeft)}</b> of work left (≈ ${Math.ceil(g.hLeft/cfg().day)} lab day${Math.ceil(g.hLeft/cfg().day)===1?'':'s'})</span><span>${g.overdue?`<b style="color:var(--bad)">${g.overdue}</b> overdue`:'nothing overdue'}</span><span>last activity <b>${g.last?fmt(g.last,{day:'numeric',month:'short'}):'—'}</b></span>${p.deadline?`<span>deadline <b>${fmt(p.deadline,{day:'numeric',month:'short',year:'numeric'})}</b> (${diff(p.deadline,today())} d)</span>`:''}</div></div></div>
+  <div class="tabs" role="tablist">${TABS.map(([k,l])=>`<button role="tab" class="${tab===k?'on':''}" data-act="tab" data-tab="${k}" data-id="${esc(id)}">${l}<span class="n">${counts[k]}</span></button>`).join('')}</div>
+  ${({tasks:pTasks,ideas:pIdeas,compounds:pCompounds,papers:pPapers,people:pPeople,fmlinks:pFm,log:pLog})[tab](id)}</div>`;
+}
+function pTasks(id){
+  const ts=ofP('tasks',id), open=ts.filter(t=>!t.done).sort(taskSort), done=ts.filter(t=>t.done).sort((a,b)=>(b.doneAt||'').localeCompare(a.doneAt||''));
+  return `<div class="stack">${quickTask(id)}<div class="row" style="justify-content:space-between;margin-top:-12px"><span class="note">Times marked ~ are estimated from the task type. Edit a task to set your own.</span><button class="btn ghost" data-act="new" data-col="tasks" data-pid="${esc(id)}">Task with details (type, priority, ELN ref.)…</button></div>
+  ${taskList(open,{proj:false},'No open tasks in this project.')}
+  ${done.length?`<details class="done-box"><summary>Completed (${done.length})</summary>${taskList(done,{proj:false},'')}</details>`:''}</div>`;
+}
+
+/* ---------- compounds & characterization ---------- */
+const entries=c=>Array.isArray(c.data)?c.data:[];
+const missing=c=>{const have=new Set(entries(c).map(e=>e.technique));return CORE.filter(t=>!have.has(t))};
+const cTitle=c=>(c.names&&c.names[0])||'';
+function structBox(c,w,h){
+  if(c.structImg) return `<div class="struct"><img src="${blob(c.structImg)}" alt="Structure of ${esc(c.code)}"></div>`;
+  if(c.smiles) return `<div class="struct"><canvas data-smiles="${esc(c.smiles)}" data-w="${w}" data-h="${h}" width="${w}" height="${h}"></canvas></div>`;
+  return `<div class="struct"><div class="ph">No structure yet</div></div>`;
+}
+function compoundCard(c,showProj){
+  const have=[...new Set(entries(c).map(e=>SHORT[e.technique]||e.technique))], miss=missing(c);
+  return `<div class="item cmp" data-act="openc" data-id="${esc(c.id)}" tabindex="0" role="button" style="--c:${(proj(c.projectId)||{}).color||'var(--accent)'}">
+    ${structBox(c,300,225)}
+    <div class="row" style="justify-content:space-between"><span class="code">${esc(c.code)}</span>${showProj?projChip(c.projectId):''}</div>
+    ${cTitle(c)?`<div class="t" style="font-weight:500">${esc(cTitle(c))}</div>`:''}
+    ${c.formula||c.mw?`<div class="x mono">${esc([c.formula,c.mw?c.mw+' g/mol':''].filter(Boolean).join(' · '))}</div>`:''}
+    <div class="techs">${have.map(t=>`<span class="tech">${esc(t)}</span>`).join('')}${miss.map(t=>`<span class="tech miss">${esc(SHORT[t]||t)}</span>`).join('')}</div></div>`;
+}
+function pCompounds(id){
+  const open=ui.openC&&S.compounds.find(c=>c.id===ui.openC&&c.projectId===id);
+  if(open) return compoundDetail(open);
+  const cs=ofP('compounds',id).sort((a,b)=>String(a.code).localeCompare(String(b.code),undefined,{numeric:true}));
+  return `<div class="stack"><div class="row" style="justify-content:space-between"><span class="note">Dashed labels show what is still missing from ¹H, ¹³C and HRMS. A compound counts as complete when it has all three.</span><button class="btn pri" data-act="new" data-col="compounds" data-pid="${esc(id)}">${ICON.plus} Add compound</button></div>
+  ${cs.length?`<div class="items">${cs.map(c=>compoundCard(c,false)).join('')}</div>`:'<div class="empty">No compounds yet. Add one with its code, names and SMILES, then attach NMR, HRMS, IR and every other spectrum.</div>'}</div>`;
+}
+function compoundDetail(c){
+  const es=entries(c), used=new Set(es.map(e=>e.technique));
+  const fileTile=(e,f)=>{const img=/^image\//.test(f.type||'');const ext=(f.name||'').split('.').pop().toUpperCase().slice(0,4)||'FILE';
+    return `<div class="file"><a class="th" href="${blob(f.id)}" target="_blank" rel="noopener" title="Open ${esc(f.name)}">${img?`<img src="${blob(f.id)}" alt="${esc(f.name)}">`:esc(ext)}</a>
+    <div class="fn"><span title="${esc(f.name)}">${esc(f.name)}</span><button data-act="rmfile" data-id="${esc(c.id)}" data-e="${esc(e.id)}" data-f="${esc(f.id)}" aria-label="Remove ${esc(f.name)}">×</button></div></div>`};
+  const entry=e=>{const preset=TECH.find(t=>t[0]===e.technique)||['','',''];
+    return `<div class="entry"><div class="eh"><span class="tn">${esc(e.technique)}</span>
+      <div class="row">${assets?`<label class="btn sm up">${ICON.up} Attach spectrum<input type="file" multiple accept=".pdf,.png,.jpg,.jpeg,.gif,.webp,.svg,.txt,.csv,.jdx,.dx,.json" data-up="${esc(c.id)}|${esc(e.id)}" aria-label="Attach files to ${esc(e.technique)}"></label>`:''}
+      <button class="btn sm danger" data-act="rmentry" data-id="${esc(c.id)}" data-e="${esc(e.id)}">Remove</button></div></div>
+      <input type="text" id="ce-${esc(c.id)}-${esc(e.id)}-cond" data-ce="${esc(c.id)}|${esc(e.id)}|cond" value="${esc(e.cond)}" placeholder="Conditions: ${esc(preset[1]||'instrument, solvent…')}" aria-label="Conditions">
+      <textarea id="ce-${esc(c.id)}-${esc(e.id)}-text" data-ce="${esc(c.id)}|${esc(e.id)}|text" placeholder="Data as in the SI: ${esc(preset[2]||'…')}" aria-label="Data">${esc(e.text)}</textarea>
+      ${(e.files||[]).length?`<div class="files">${e.files.map(f=>fileTile(e,f)).join('')}</div>`:''}</div>`};
+  return `<div class="stack"><div class="row" style="justify-content:space-between"><button class="btn ghost" data-act="closec">← All compounds</button>
+    <div class="row"><button class="btn" data-act="si" data-id="${esc(c.id)}">Copy SI text</button><button class="btn" data-act="edit" data-col="compounds" data-id="${esc(c.id)}">${ICON.edit} Edit compound</button></div></div>
+  <div class="cdetail"><div class="stack" style="gap:12px">${structBox(c,360,270)}
+    <div class="row">${assets?`<label class="btn sm up">${ICON.up} ${c.structImg?'Replace':'Upload'} structure image<input type="file" accept=".png,.jpg,.jpeg,.gif,.webp,.svg" data-up="${esc(c.id)}|struct" aria-label="Upload structure image"></label>`:''}${c.structImg?`<button class="btn sm ghost" data-act="rmstruct" data-id="${esc(c.id)}">${c.smiles?'Draw from SMILES instead':'Remove image'}</button>`:''}</div>
+    <dl class="props"><dt>Code</dt><dd class="mono">${esc(c.code)}</dd>${c.formula?`<dt>Formula</dt><dd>${esc(c.formula)}</dd>`:''}${c.mw?`<dt>MW</dt><dd>${esc(c.mw)} g/mol</dd>`:''}${c.smiles?`<dt>SMILES</dt><dd class="sel">${esc(c.smiles)}</dd>`:''}
+    ${c.elnRef||c.elnUrl?`<dt>ELN</dt><dd>${safeUrl(c.elnUrl)?`<a href="${esc(c.elnUrl)}" target="_blank" rel="noopener">${esc(c.elnRef||'Open experiment')} ${ICON.ext}</a>`:esc(c.elnRef)}</dd>`:''}</dl>
+    ${c.notes?`<div class="note" style="white-space:pre-wrap">${esc(c.notes)}</div>`:''}</div>
+  <div class="stack" style="gap:16px">
+    <section class="sec"><h3>Names</h3><div class="names">${(c.names||[]).map((n,i)=>`<span class="name">${esc(n)}<button data-act="rmname" data-id="${esc(c.id)}" data-i="${i}" aria-label="Remove name">×</button></span>`).join('')||'<span class="note">No names yet.</span>'}</div>
+      <form class="inl" data-form="addname" data-id="${esc(c.id)}"><input type="text" id="nm-${esc(c.id)}" placeholder="Add a name (IUPAC, trivial, lab code…)" aria-label="New name"><button class="btn sm" type="submit">${ICON.plus} Add name</button></form></section>
+    <section class="sec"><div class="sec-h"><h3>Characterization</h3><span class="cnt">${es.length}</span></div>
+      ${missing(c).length?`<div class="note">Still missing: ${missing(c).map(esc).join(', ')}</div>`:''}
+      ${es.map(entry).join('')||'<div class="empty">No data yet. Add a technique below, type the data as you would in the SI, and attach the spectra (PDF or image).</div>'}
+      <form class="inl" data-form="addentry" data-id="${esc(c.id)}"><select id="te-${esc(c.id)}" aria-label="Technique">${TECH.map(t=>`<option ${!used.has(t[0])&&t[0]===(TECH.find(x=>!used.has(x[0]))||[])[0]?'selected':''}>${esc(t[0])}</option>`).join('')}</select>
+      <input type="text" id="tc-${esc(c.id)}" placeholder="…or type another technique" aria-label="Custom technique"><button class="btn sm pri" type="submit">${ICON.plus} Add technique</button></form>
+      ${assets?'':'<div class="note">File uploads are only available when the page is opened from your claude.ai account.</div>'}</section>
+  </div></div></div>`;
+}
+function siText(c){
+  const parts=entries(c).filter(e=>e.text||e.cond).map(e=>{
+    if(e.technique==='Yield'||e.technique==='Melting point'||e.technique==='TLC')return (e.text||'').trim();
+    return `${e.technique}${e.cond?` (${e.cond})`:''}${e.text?`: ${e.text.trim()}`:''}`});
+  return `${cTitle(c)?cTitle(c)+' ':''}(${c.code}).`+(parts.length?' '+parts.join('; ')+'.':'');
+}
+async function uploadFiles(cid,target,files){
+  const c=S.compounds.find(x=>x.id===cid);if(!c||!assets)return;
+  const typeFor=f=>{const ext=(f.name.split('.').pop()||'').toLowerCase();const m={pdf:'application/pdf',png:'image/png',jpg:'image/jpeg',jpeg:'image/jpeg',gif:'image/gif',webp:'image/webp',svg:'image/svg+xml',txt:'text/plain',jdx:'text/plain',dx:'text/plain',csv:'text/csv',json:'application/json'};return m[ext]||f.type||''};
+  const out=[];toast(`Uploading ${files.length} file${files.length===1?'':'s'}…`);
+  for(const f of files){try{const r=await assets.upload(f,{type:typeFor(f)});out.push({id:r.id,name:f.name,type:r.contentType||typeFor(f)})}catch(e){console.error(e);toast(e.code==='too_large'?`${f.name} is over 20 MB.`:e.code==='unsupported_type'?`${f.name}: use PDF, an image, or a text/JCAMP file.`:`Could not upload ${f.name}.`)}}
+  if(!out.length)return;
+  const cur=S.compounds.find(x=>x.id===cid)||c;
+  if(target==='struct'){const old=cur.structImg;await upd('compounds',cid,{structImg:out[0].id});if(old)dropAsset(old)}
+  else{const data=entries(cur).map(e=>e.id===target?Object.assign({},e,{files:[...(e.files||[]),...out]}):e);await upd('compounds',cid,{data})}
+  toast('Uploaded');
+}
+
+/* ---------- structure search: SMILES parser + substructure match ---------- */
+function parseSmiles(s){
+  const atoms=[],bonds=[];let prev=-1,bo=null,i=0;const stack=[],ring={};
+  const bond=(a,b,o)=>{if(a<0||b<0)return;const ar=atoms[a].ar&&atoms[b].ar;const order=o==='='?2:o==='#'?3:o==='$'?4:o===':'?1.5:o==='-'?1:(ar?1.5:1);bonds.push([a,b,order])};
+  s=String(s||'').trim();
+  while(i<s.length){
+    const ch=s[i];
+    if(ch==='('){stack.push(prev);i++;continue}
+    if(ch===')'){prev=stack.length?stack.pop():-1;i++;continue}
+    if(ch==='.'){prev=-1;i++;continue}
+    if('-=#$:'.includes(ch)){bo=ch;i++;continue}
+    if(ch==='/'||ch==='\\'){i++;continue}
+    if(/[0-9%]/.test(ch)){let n;if(ch==='%'){n=s.substr(i+1,2);i+=3}else{n=ch;i++}
+      if(ring[n]){bond(ring[n].a,prev,bo||ring[n].bo);delete ring[n]}else ring[n]={a:prev,bo};bo=null;continue}
+    let el;
+    if(ch==='['){const j=s.indexOf(']',i);if(j<0)throw new Error('bracket');const m=s.slice(i+1,j).match(/^\d*(\*|[A-Z][a-z]?|[a-z]{1,2})/);el=m?m[1]:'*';i=j+1;
+      if(el.length===2&&el===el.toLowerCase()&&!['se','as','te'].includes(el))el=el[0];}
+    else{const two=s.substr(i,2);if(two==='Cl'||two==='Br'){el=two;i+=2}else if(/[BCNOPSFIbcnops*]/.test(ch)){el=ch;i++}else throw new Error('char '+ch)}
+    if(el==='H'){bo=null;continue}
+    const ar=el!=='*'&&el===el.toLowerCase();
+    atoms.push({el:ar?el[0].toUpperCase()+el.slice(1):el,ar});
+    const idx=atoms.length-1;if(prev>=0)bond(prev,idx,bo);bo=null;prev=idx;
+  }
+  const adj=atoms.map(()=>new Map());bonds.forEach(([a,b,o])=>{adj[a].set(b,o);adj[b].set(a,o)});
+  return{atoms,adj};
+}
+function hasSub(q,t){
+  const n=q.atoms.length;if(!n||n>t.atoms.length)return false;
+  const order=[],seen=new Set();
+  for(let s=0;s<n;s++){if(seen.has(s))continue;const qq=[s];seen.add(s);while(qq.length){const a=qq.shift();order.push(a);for(const b of q.adj[a].keys())if(!seen.has(b)){seen.add(b);qq.push(b)}}}
+  const map=new Array(n).fill(-1),used=new Set();let steps=0;
+  const bOK=(x,y)=>x===y||((x===1.5||y===1.5)&&x<3&&y<3);
+  const aOK=(qa,ta)=>(qa.el==='*'||qa.el===ta.el);
+  function rec(k){
+    if(k===n)return true;if(++steps>300000)return false;
+    const qi=order[k],qa=q.atoms[qi];
+    const mappedNb=[...q.adj[qi].keys()].filter(j=>map[j]>=0);
+    const cands=mappedNb.length?[...t.adj[map[mappedNb[0]]].keys()]:t.atoms.map((_,i)=>i);
+    for(const c of cands){
+      if(used.has(c)||!aOK(qa,t.atoms[c])||t.adj[c].size<q.adj[qi].size)continue;
+      let ok=true;for(const j of mappedNb){const tb=t.adj[c].get(map[j]);if(tb===undefined||!bOK(q.adj[qi].get(j),tb)){ok=false;break}}
+      if(!ok)continue;map[qi]=c;used.add(c);if(rec(k+1))return true;map[qi]=-1;used.delete(c);
+    }
+    return false;
+  }
+  return rec(0);
+}
+const parsedCache=new Map();
+const parsed=smi=>{if(!parsedCache.has(smi)){let v=null;try{v=parseSmiles(smi)}catch(e){}parsedCache.set(smi,v)}return parsedCache.get(smi)};
+const normF=s=>String(s||'').replace(/[₀-₉]/g,d=>'0123456789'['₀₁₂₃₄₅₆₇₈₉'.indexOf(d)]).replace(/\s/g,'').toLowerCase();
+function searchResults(){
+  const {q,sub,pid,miss}=ui.s;let qp=null,err='';
+  if(sub.trim()){qp=parsed(sub.trim());if(!qp||!qp.atoms.length){err='This SMILES can’t be read. Check brackets and ring numbers.';qp=null}}
+  const words=q.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  let list=S.compounds.filter(c=>proj(c.projectId));
+  if(pid)list=list.filter(c=>c.projectId===pid);
+  if(miss)list=list.filter(c=>missing(c).length);
+  if(words.length)list=list.filter(c=>{const hay=[c.code,...(c.names||[]),c.smiles,c.notes,c.elnRef].join(' ').toLowerCase(),f=normF(c.formula);return words.every(w=>hay.includes(w)||f.includes(normF(w)))});
+  let noSmiles=0;
+  if(qp)list=list.filter(c=>{if(!c.smiles){noSmiles++;return false}const t=parsed(c.smiles);return t&&hasSub(qp,t)});
+  return{list,err,noSmiles,active:!!(words.length||qp||miss||pid)};
+}
+function resultsHtml(){
+  const r=searchResults();
+  const head=`<div class="sec-h"><h3>${r.active?'Results':'All compounds'}</h3><span class="cnt">${r.list.length}</span></div>`;
+  return head+(r.err?`<div class="banner">${r.err}</div>`:'')+(r.list.length?`<div class="items">${r.list.sort((a,b)=>String(a.code).localeCompare(String(b.code),undefined,{numeric:true})).map(c=>compoundCard(c,true)).join('')}</div>`:`<div class="empty">${S.compounds.length?'No compound matches.':'No compounds yet. Add them from the Characterization tab of a project.'}</div>`)+(r.noSmiles?`<div class="note">${r.noSmiles} compound${r.noSmiles===1?' has':'s have'} no SMILES and can’t be matched by substructure.</div>`:'');
+}
+function vSearch(){
+  const s=ui.s;
+  return `<div class="head"><div><h1>Search</h1><div class="sub">Find compounds across all projects by substructure, name, code or formula.</div></div></div>
+  <div class="stack"><div class="panel sform"><div class="fields">
+    <div><label for="s-sub">Substructure (SMILES)</label><input type="text" id="s-sub" value="${esc(s.sub)}" placeholder="e.g. c1ccc(cc1)-c1ccccc1 for any biaryl, C(=O)O for esters and acids" autocomplete="off" spellcheck="false"></div>
+    <div><label for="s-q">Name, code or formula</label><input type="text" id="s-q" value="${esc(s.q)}" placeholder="e.g. 14b, acridinium, C15H14O3" autocomplete="off"></div>
+    <div class="opts"><div><label for="s-pid">Project</label><select id="s-pid"><option value="">All projects</option>${projSorted().map(p=>`<option value="${esc(p.id)}" ${s.pid===p.id?'selected':''}>${esc(p.code?p.code+' · '+p.name:p.name)}</option>`).join('')}</select></div>
+      <label class="ck"><input type="checkbox" id="s-miss" ${s.miss?'checked':''}> Missing ¹H, ¹³C or HRMS</label></div>
+    <div class="note">Substructure matching compares atoms and bonds; aromatic and Kekulé forms match each other. Stereochemistry and charges are ignored.</div></div>
+    <div><label>Query structure</label><div class="struct" id="s-qprev">${s.sub.trim()?`<canvas data-smiles="${esc(s.sub.trim())}" data-w="220" data-h="165" width="220" height="165"></canvas>`:'<div class="ph">Type a SMILES to see it here</div>'}</div></div></div>
+    <section class="sec" id="s-results">${resultsHtml()}</section></div>`;
+}
+function refreshSearch(qprev){
+  const res=document.getElementById('s-results');if(res)res.innerHTML=resultsHtml();
+  const pv=document.getElementById('s-qprev');
+  if(pv&&qprev){const smi=ui.s.sub.trim();pv.innerHTML=smi?`<canvas data-smiles="${esc(smi)}" data-w="220" data-h="165" width="220" height="165"></canvas>`:'<div class="ph">Type a SMILES to see it here</div>'}
+  drawStructures();
+}
+
+/* ---------- ideas, literature, people, links, log (all inside a project) ---------- */
+function ideaCard(i){
+  return `<div class="item idea"><div class="t">${esc(i.text)}</div><div class="foot"><div class="row">${pill('ideas',i)}</div>
+  <div class="row">${i.status!=='promossa'?`<button class="btn ghost" data-act="promote" data-id="${esc(i.id)}">→ task</button>`:''}${editBtn('ideas',i.id)}</div></div></div>`;
+}
+function pIdeas(id){
+  const is=ofP('ideas',id).sort((a,b)=>(b.created||0)-(a.created||0));
+  const live=is.filter(i=>i.status!=='scartata'&&i.status!=='promossa'), arch=is.filter(i=>!live.includes(i));
+  return `<div class="stack"><form class="qa" data-form="qidea" data-pid="${esc(id)}"><textarea id="qi-text-${esc(id)}" placeholder="Jot down an idea: an alternative route, a substrate to try, a measurement…" aria-label="New idea"></textarea><button class="btn pri" type="submit">${ICON.plus} Save idea</button></form>
+  ${live.length?`<div class="items">${live.map(ideaCard).join('')}</div>`:'<div class="empty">No open ideas in this project.</div>'}
+  ${arch.length?`<details class="done-box"><summary>Archive (${arch.length})</summary><div class="items">${arch.map(ideaCard).join('')}</div></details>`:''}</div>`;
+}
+function paperCard(p){
+  const link=p.doi?`https://doi.org/${encodeURIComponent(p.doi.trim()).replace(/%2F/g,'/')}`:safeUrl(p.url);
+  return `<div class="item"><div class="t">${link?`<a href="${esc(link)}" target="_blank" rel="noopener" style="color:var(--ink)">${esc(p.title)}</a>`:esc(p.title)}</div>
+  <div class="x">${esc([p.authors,[p.journal,p.year].filter(Boolean).join(' ')].filter(Boolean).join(' — '))}</div>
+  ${p.doi?`<div class="sel">${esc(p.doi)}</div>`:''}${p.notes?`<div class="x">${esc(p.notes)}</div>`:''}
+  <div class="foot"><div class="row">${pill('papers',p)}</div>${editBtn('papers',p.id)}</div></div>`;
+}
+function pPapers(id){
+  const ps=ofP('papers',id).sort((a,b)=>(b.created||0)-(a.created||0));
+  return `<div class="stack"><div class="row" style="justify-content:space-between"><span class="note">Click the status to switch between “To read”, “Read” and “Key paper”.</span><button class="btn pri" data-act="new" data-col="papers" data-pid="${esc(id)}">${ICON.plus} Add paper</button></div>
+  ${ps.length?`<div class="items">${ps.map(paperCard).join('')}</div>`:'<div class="empty">No references yet. Add key papers, procedures to reproduce and reference data.</div>'}</div>`;
+}
+function personCard(p){
+  const days=p.lastContact?diff(today(),p.lastContact):null;
+  return `<div class="item"><div class="row" style="justify-content:space-between"><span class="t">${esc(p.name)}</span>${pill('people',p)}</div>
+  ${p.affiliation?`<div class="x">${esc(p.affiliation)}</div>`:''}${p.role?`<div>${esc(p.role)}</div>`:''}
+  ${p.email?`<div class="sel">${esc(p.email)}</div>`:''}${p.notes?`<div class="x">${esc(p.notes)}</div>`:''}
+  <div class="foot"><span class="note">${days===null?'no contact logged':days===0?'contacted today':`last contact ${days} d ago`}</span>
+  <div class="row"><button class="btn ghost" data-act="contacted" data-id="${esc(p.id)}" title="Log a contact today">Contacted today</button>${editBtn('people',p.id)}</div></div></div>`;
+}
+function pPeople(id){
+  const ps=ofP('people',id);
+  return `<div class="stack"><div class="row" style="justify-content:flex-end"><button class="btn pri" data-act="new" data-col="people" data-pid="${esc(id)}">${ICON.plus} Add collaborator</button></div>
+  ${ps.length?`<div class="items">${ps.map(personCard).join('')}</div>`:'<div class="empty">No collaborators yet. Add the people who measure, compute or test your compounds.</div>'}</div>`;
+}
+function pFm(id){
+  const ls=ofP('fmlinks',id), p=proj(id);
+  const kindL={eln:'ELN experiment',inv:'Inventory',altro:'Other'};
+  return `<div class="stack"><div class="panel note" style="font-size:.9rem">FindMolecule has no public API, so links are added by hand: open the experiment or inventory item in FindMolecule, copy its address and paste it here. You can also link a single task or compound to an experiment with its “ELN ref.” field.
+  <div class="row" style="margin-top:10px"><a class="btn" href="https://app.findmolecule.com" target="_blank" rel="noopener">Open FindMolecule ${ICON.ext}</a>${safeUrl(p.fmUrl)?`<a class="btn" href="${esc(p.fmUrl)}" target="_blank" rel="noopener">Project ${esc(p.fmProject||'')} ${ICON.ext}</a>`:`<button class="btn ghost" data-act="edit" data-col="projects" data-id="${esc(id)}">Set the project link</button>`}
+  <button class="btn pri" data-act="new" data-col="fmlinks" data-pid="${esc(id)}">${ICON.plus} Add link</button></div></div>
+  ${ls.length?`<ul class="list">${ls.map(l=>`<li class="task" style="grid-template-columns:minmax(0,1fr) auto"><div style="min-width:0"><div class="ttl">${safeUrl(l.url)?`<a href="${esc(l.url)}" target="_blank" rel="noopener" style="color:var(--ink)">${esc(l.label)} ${ICON.ext}</a>`:esc(l.label)}</div><div class="meta"><span>${kindL[l.kind]||'ELN experiment'}</span>${l.ref?`<span class="mono">${esc(l.ref)}</span>`:''}</div></div>${editBtn('fmlinks',l.id)}</li>`).join('')}</ul>`:'<div class="empty">No links yet.</div>'}
+  ${(()=>{const ts=ofP('tasks',id).filter(t=>t.elnRef||t.elnUrl);return ts.length?`<section class="sec"><div class="sec-h"><h3>Tasks linked to experiments</h3></div>${taskList(ts,{proj:false},'')}</section>`:''})()}</div>`;
+}
+function pLog(id){
+  const td=today(), ev={};
+  ofP('log',id).forEach(l=>(ev[l.date||td]=ev[l.date||td]||[]).push({k:'note',l}));
+  ofP('tasks',id).filter(t=>t.done&&t.doneAt).forEach(t=>(ev[t.doneAt]=ev[t.doneAt]||[]).push({k:'done',t}));
+  const days=Object.keys(ev).sort().reverse();
+  return `<div class="stack"><form class="qa" data-form="qlog" data-pid="${esc(id)}"><textarea id="ql-text-${esc(id)}" placeholder="Progress note, e.g. “14b isolated, 72% yield, ¹H NMR matches”" aria-label="Progress note"></textarea>
+  <input type="date" id="ql-date-${esc(id)}" value="${td}" aria-label="Date"><button class="btn pri" type="submit">${ICON.plus} Log it</button></form>
+  ${days.length?`<ul class="timeline">${days.map(d=>`<li class="day"><div class="d">${fmt(d,{day:'numeric',month:'short',year:'numeric'})}</div><div class="evs">${ev[d].map(e=>e.k==='note'?`<div class="ev note"><span class="k">Note</span><span class="x">${esc(e.l.text)}</span> <button class="btn ghost" data-act="edit" data-col="log" data-id="${esc(e.l.id)}" aria-label="Edit">${ICON.edit}</button></div>`:`<div class="ev done"><span class="k">Done</span>${esc(e.t.title)} <span class="hrs">${fh(est(e.t))}</span></div>`).join('')}</div></li>`).join('')}</ul>`:'<div class="empty">The log fills itself with completed tasks. Add results, yields and observations here.</div>'}</div>`;
+}
+
+function side(r){
+  const td=today(), plan=todayPlan();
+  const nToday=plan?plan.ids.map(id=>S.tasks.find(t=>t.id===id)).filter(t=>t&&!t.done).length:S.tasks.filter(t=>!t.done&&liveProj(t)&&(t.due&&t.due<=td||t.focus===td)).length;
+  const a=(h,l,n,on)=>`<a href="#${h}" class="${on?'on':''}">${l}${n!=null?`<span class="n">${n}</span>`:''}</a>`;
+  return `<aside class="side"><div class="brand">${ICON.flask}Lab Organizer</div>
+  <nav class="nav main-nav">${a('today','Today',nToday,r.v==='today')}${a('projects','Projects',S.projects.filter(p=>p.status!=='concluso').length,r.v==='projects')}${a('search','Search structures',null,r.v==='search')}${a('settings','Settings',null,r.v==='settings')}</nav>
+  <h3 class="lbl-p">Projects</h3>
+  <nav class="nav projs">${projSorted().filter(p=>p.status!=='concluso').map(p=>{const g=progress(p.id);return `<a href="#p-${esc(p.id)}" class="${r.v==='p'&&r.id===p.id?'on':''}" style="--c:${p.color}"><span class="dot"></span><span class="nm">${esc(p.name)}</span><span class="n">${g.overall}%</span><span class="bar"><i style="width:${g.overall}%"></i></span></a>`}).join('')}
+  <a href="#projects" data-act="new" data-col="projects" style="color:var(--muted)">${ICON.plus} New project</a></nav>
+  <div class="side-foot"><a class="btn" href="https://app.findmolecule.com" target="_blank" rel="noopener">FindMolecule ${ICON.ext}</a><span class="note">Private: only you can see and change this data.</span></div></aside>`;
+}
+
+/* ---------- structure drawing ---------- */
+function drawStructures(){
+  if(!window.SmilesDrawer)return;
+  document.querySelectorAll('canvas[data-smiles]').forEach(cv=>{
+    if(cv.dataset.done)return;cv.dataset.done='1';
+    try{const d=new SmilesDrawer.Drawer({width:+cv.dataset.w,height:+cv.dataset.h,bondThickness:1.1,fontSizeLarge:7,fontSizeSmall:5,padding:16});
+      SmilesDrawer.parse(cv.dataset.smiles,tree=>{try{d.draw(tree,cv,'light',false)}catch(e){bad(cv)}},()=>bad(cv))}catch(e){bad(cv)}
+  });
+  function bad(cv){const p=cv.parentNode;if(p)p.innerHTML='<div class="ph">Could not read this SMILES.</div>'}
+}
+
+function render(){
+  const app=document.getElementById('app');
+  const keep={};app.querySelectorAll('input[id]:not([type=file]):not([type=checkbox]),textarea[id],select[id]').forEach(el=>keep[el.id]=el.value);
+  const act=document.activeElement, aid=act&&app.contains(act)&&act.id?act.id:null;let sel=null;try{if(aid)sel=[act.selectionStart,act.selectionEnd]}catch(e){}
+  const r=route();let body;
+  if(phase==='nodb') body=`<div class="head"><h1>Storage not available</h1></div><div class="empty">Your data can’t be reached in this view. Open the page from claude.ai with your account to see and edit your projects.</div>`;
+  else if(phase==='loading'&&!loaded.size) body=`<div class="head"><div><h1>Loading…</h1><div class="sub">${slow?'Your data isn’t responding yet. Check your connection: the page updates by itself as soon as it arrives.':'Fetching projects, tasks and notes.'}</div></div></div>`;
+  else body=(PREVIEW?`<div class="banner">Local preview with example data. Nothing here is saved; your real data lives in the published page.</div>`:'')+(slow&&phase!=='ready'?`<div class="banner">Some data hasn’t arrived yet: what you see may be out of date.</div>`:'')+(r.v==='p'?vProject(r.id):r.v==='projects'?vProjects():r.v==='search'?vSearch():r.v==='settings'?vSettings():vToday());
+  app.innerHTML=side(r)+`<main class="main">${body}</main>`;
+  for(const id in keep){const el=document.getElementById(id);if(!el)continue;if(el.tagName!=='SELECT')el.value=keep[id];else if([...el.options].some(o=>o.value===keep[id]))el.value=keep[id]}
+  if(aid){const el=document.getElementById(aid);if(el){el.focus();try{if(sel)el.setSelectionRange(sel[0],sel[1])}catch(e){}}}
+  drawStructures();
+}
+
+/* ---------- editor modal ---------- */
+let edit=null;
+function openEditor(col,item,defaults){
+  if(col!=='projects'&&!S.projects.length){toast('Create a project first: everything belongs to a project.');location.hash='projects';return}
+  edit={col,id:item&&item.id};const v=Object.assign({},defaults||{},item||{});const sc=SCHEMA[col];
+  if(col!=='projects'&&!proj(v.projectId))v.projectId=(projSorted().find(p=>p.status!=='concluso')||S.projects[0]).id;
+  const field=([k,l,type,o={}])=>{
+    const id='f-'+k, val=v[k]??'', req=o.req?'required':'', ph=o.ph?`placeholder="${esc(o.ph)}"`:'', w=o.w?'w':'', hint=o.hint?`<span class="hint">${esc(o.hint)}</span>`:'';
+    let inp;
+    if(type==='textarea') inp=`<textarea id="${id}" ${req} ${ph}>${esc(val)}</textarea>`;
+    else if(type==='lines') inp=`<textarea id="${id}" ${ph} style="min-height:70px">${esc(Array.isArray(val)?val.join('\n'):val)}</textarea>`;
+    else if(type==='select') inp=`<select id="${id}">${(typeof o.opts==='function'?o.opts():o.opts).map(([a,b])=>`<option value="${esc(a)}" ${String(val)===String(a)?'selected':''}>${esc(b)}</option>`).join('')}</select>`;
+    else if(type==='status') inp=`<select id="${id}">${ST[col].map(s=>`<option value="${s[0]}" ${val===s[0]?'selected':''}>${s[1]}</option>`).join('')}</select>`;
+    else if(type==='project') inp=`<select id="${id}" required>${projOptions(val)}</select>`;
+    else if(type==='number') inp=`<input id="${id}" type="number" min="0" step="0.25" value="${esc(val)}" ${ph}>`;
+    else if(type==='color') return `<div class="fld w"><label>${l}</label><div class="swatches">${COLORS.map((c,i)=>`<label style="--c:${c}"><input type="radio" name="color" value="${c}" ${(val||COLORS[S.projects.length%COLORS.length])===c?'checked':''} aria-label="Colour ${i+1}"><span></span></label>`).join('')}</div></div>`;
+    else if(type==='focus') return `<div class="fld chk"><input type="checkbox" id="${id}" ${v.focus===today()?'checked':''}><label for="${id}" style="color:var(--ink);font-weight:500">${l}</label></div>`;
+    else inp=`<input id="${id}" type="${type==='url'?'url':type==='date'?'date':'text'}" value="${esc(val)}" ${req} ${ph}>`;
+    return `<div class="fld ${w}"><label for="${id}">${l}</label>${inp}${hint}</div>`;
+  };
+  const extra=col==='projects'&&item?(()=>{const n=COLS.filter(c=>c!=='projects').reduce((s,c)=>s+ofP(c,item.id).length,0);return n?` and its ${n} item${n===1?'':'s'}`:''})():col==='compounds'&&item?' and its spectra':'';
+  const m=document.getElementById('modal');
+  m.innerHTML=`<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="m-t"><h2 id="m-t" style="margin-bottom:14px">${item?'Edit':'New'} ${sc.one}</h2>
+  <form id="ed-form">${sc.f.map(field).join('')}<div class="acts"><div>${item?`<button type="button" class="btn danger" id="ed-del" data-extra="${esc(extra)}">Delete</button>`:''}</div>
+  <div class="row"><button type="button" class="btn" id="ed-cancel">Cancel</button><button class="btn pri" type="submit">Save</button></div></div></form></div>`;
+  m.hidden=false;const first=m.querySelector('input:not([type=radio]),textarea');if(first)first.focus();
+}
+/* ---------- settings page ---------- */
+let draft=null; /* unsaved copy of the settings while you edit them */
+const getDraft=()=>{if(!draft){const C=cfg();draft={day:C.day,start:C.start,kinds:C.kinds.map(k=>({id:uid(),name:k.name,hours:k.hours,keys:k.keys||''})),dirty:false}}return draft};
+function vSettings(){
+  const d=getDraft(), use={};S.tasks.filter(t=>!t.done).forEach(t=>{const k=kindOf(t);use[k]=(use[k]||0)+1});
+  const row=(k,i)=>`<div class="krow"><div class="ord"><button data-act="kup" data-i="${i}" ${i?'':'disabled'} aria-label="Move up">▲</button><button data-act="kdown" data-i="${i}" ${i<d.kinds.length-1?'':'disabled'} aria-label="Move down">▼</button></div>
+    <input type="text" id="k-${k.id}-name" data-k="${k.id}|name" value="${esc(k.name)}" placeholder="Activity name" aria-label="Activity name">
+    <input type="number" id="k-${k.id}-hours" data-k="${k.id}|hours" value="${esc(k.hours)}" min="0.25" step="0.25" aria-label="Default hours for ${esc(k.name)}">
+    <input type="text" class="kw" id="k-${k.id}-keys" data-k="${k.id}|keys" value="${esc(k.keys)}" placeholder="keywords, comma separated" aria-label="Keywords for ${esc(k.name)}">
+    <div class="row" style="gap:4px;flex-wrap:nowrap"><span class="use">${use[k.name]||0} open</span><button class="btn sm ghost danger" data-act="kdel" data-i="${i}" ${d.kinds.length>1?'':'disabled'} aria-label="Remove ${esc(k.name)}">Remove</button></div></div>`;
+  return `<div class="head"><div><h1>Settings</h1><div class="sub">How long your activities take and how long your lab day is. Daily work and the progress check use these numbers.</div></div></div>
+  <div class="stack">
+    <section class="sec"><h3>Workday</h3><div class="setgrid">
+      <div class="fld"><label for="st-day">Hours per day</label><input id="st-day" data-s="day" type="number" min="1" max="16" step="0.25" value="${esc(d.day)}"></div>
+      <div class="fld"><label for="st-start">Day starts at</label><input id="st-start" data-s="start" type="time" value="${esc(d.start)}"></div></div></section>
+    <section class="sec"><div class="sec-h"><h3>Activity types</h3><span class="cnt">${d.kinds.length}</span></div>
+      <div class="note" style="max-width:75ch">Each task gets the default time of its activity type, unless you write its real time on the task. Keywords pick the type automatically from the task title (“column of 14b” → Workup). The order here is the order of your day in Daily work: put reactions first so they run while you do the rest.</div>
+      <div class="kinds"><div class="krow hd"><span></span><span>Activity</span><span>Hours</span><span>Keywords</span><span></span></div>${d.kinds.map(row).join('')}</div>
+      <div class="row"><button class="btn" data-act="kadd">${ICON.plus} Add activity type</button><button class="btn ghost" data-act="kreset">Restore defaults</button></div></section>
+    ${d.dirty?`<div class="savebar"><span>You have unsaved changes.</span><div class="row"><button class="btn" data-act="sdiscard">Discard</button><button class="btn pri" data-act="ssave">Save settings</button></div></div>`:''}
+  </div>`;
+}
+async function saveSettings(){
+  const d=getDraft(),seen=new Set(),kinds=[];
+  for(const k of d.kinds){const name=String(k.name||'').trim();if(!name)return toast('Every activity needs a name.');if(seen.has(name.toLowerCase()))return toast(`“${name}” is listed twice.`);seen.add(name.toLowerCase());
+    const h=parseFloat(k.hours);kinds.push({name,hours:h>0?Math.round(h*4)/4:1,keys:String(k.keys||'').trim()})}
+  const day=parseFloat(d.day);
+  draft=null;await put('settings','main',{day:day>0?day:8,start:d.start||'09:00',kinds});toast('Settings saved');render();
+}
+function openSI(c){
+  edit={col:'si'};const m=document.getElementById('modal');
+  m.innerHTML=`<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="m-t"><h2 id="m-t" style="margin-bottom:6px">SI text for ${esc(c.code)}</h2>
+  <p class="note" style="margin:0 0 12px">Built from the data you typed, in the usual Supporting Information order. Edit it here before copying if you like.</p>
+  <textarea class="si" id="si-text">${esc(siText(c))}</textarea>
+  <div class="row" style="justify-content:flex-end;margin-top:12px"><button class="btn" id="ed-cancel">Close</button><button class="btn pri" id="si-copy">Copy</button></div></div>`;
+  m.hidden=false;
+}
+function closeEditor(){document.getElementById('modal').hidden=true;edit=null}
+async function deleteCompound(c){
+  const ids=[c.structImg,...entries(c).flatMap(e=>(e.files||[]).map(f=>f.id))].filter(Boolean);
+  await del('compounds',c.id);for(const a of ids)await dropAsset(a);
+}
+const modal=document.getElementById('modal');
+modal.addEventListener('click',async e=>{
+  if(e.target.id==='modal'||e.target.id==='ed-cancel')return closeEditor();
+  if(e.target.id==='si-copy'){const ta=document.getElementById('si-text');try{await navigator.clipboard.writeText(ta.value);toast('Copied')}catch(err){ta.focus();ta.select();toast('Press ⌘C / Ctrl+C to copy')}return}
+  const d=e.target.closest('#ed-del');if(!d)return;
+  if(!d.classList.contains('arm')){d.classList.add('arm');d.textContent=`Confirm: delete${d.dataset.extra||''}`;setTimeout(()=>{if(d.isConnected){d.classList.remove('arm');d.textContent='Delete'}},4000);return}
+  const {col,id}=edit;closeEditor();
+  if(col==='projects'){location.hash='projects';for(const c of COLS)if(c!=='projects')for(const x of ofP(c,id)){if(c==='compounds')await deleteCompound(x);else await del(c,x.id)}await del(col,id)}
+  else if(col==='compounds'){const c=S.compounds.find(x=>x.id===id);if(ui.openC===id){ui.openC='';saveUi()}if(c)await deleteCompound(c)}
+  else await del(col,id);
+  toast('Deleted');
+});
+modal.addEventListener('submit',async e=>{
+  e.preventDefault();
+  const {col,id}=edit, data={};
+  for(const [k,,type] of SCHEMA[col].f){
+    if(type==='color'){const c=document.querySelector('#ed-form input[name=color]:checked');data.color=c?c.value:COLORS[0];continue}
+    const el=document.getElementById('f-'+k);
+    if(type==='focus'){const was=id&&(S[col].find(x=>x.id===id)||{}).focus;data.focus=el.checked?today():(was&&was!==today()?was:'');continue}
+    if(type==='lines'){data[k]=el.value.split('\n').map(s=>s.trim()).filter(Boolean);continue}
+    if(type==='number'){const v=parseFloat(el.value);data[k]=v>0?v:'';continue}
+    data[k]=el.value.trim();
+  }
+  if(col==='tasks')data.priority=+data.priority||2;
+  closeEditor();
+  if(id)await upd(col,id,data);
+  else{
+    if(col==='tasks')Object.assign(data,{done:false,doneAt:''});
+    if(col==='compounds')Object.assign(data,{data:[],structImg:''});
+    const ref=await add(col,data);toast('Saved');
+    if(col==='projects'&&ref)location.hash='p-'+ref.id;
+    if(col==='compounds'&&ref){ui.openC=ref.id;ui.tab[data.projectId]='compounds';saveUi();if(location.hash!=='#p-'+data.projectId)location.hash='p-'+data.projectId;else render()}
+  }
+});
+addEventListener('keydown',e=>{if(e.key==='Escape'&&edit)closeEditor()});
+
+/* ---------- actions ---------- */
+const app=document.getElementById('app');
+const findC=id=>S.compounds.find(x=>x.id===id);
+app.addEventListener('click',async e=>{
+  const b=e.target.closest('[data-act]');if(!b||!db)return;
+  const {act,col,id}=b.dataset;
+  if(act==='new'){e.preventDefault();const def={};if(b.dataset.pid)def.projectId=b.dataset.pid;
+    const r=route();if(!def.projectId&&r.v==='p')def.projectId=r.id;
+    if(col==='projects')def.status='attivo';if(col==='tasks')def.priority=2;if(col==='papers')def.status='leggere';if(col==='people')def.status='attiva';if(col==='ideas')def.status='nuova';if(col==='log')def.date=today();
+    return openEditor(col,null,def)}
+  if(act==='edit'){e.preventDefault();return openEditor(col,S[col].find(x=>x.id===id))}
+  if(act==='settings'){location.hash='settings';return}
+  if(act==='kadd'){const d=getDraft();d.kinds.push({id:uid(),name:'',hours:1,keys:''});d.dirty=true;render();const ins=document.querySelectorAll('.krow input[data-k$="|name"]');ins.length&&ins[ins.length-1].focus();return}
+  if(act==='kdel'||act==='kup'||act==='kdown'){const d=getDraft(),i=+b.dataset.i;
+    if(act==='kdel')d.kinds.splice(i,1);else{const j=act==='kup'?i-1:i+1;if(j<0||j>=d.kinds.length)return;[d.kinds[i],d.kinds[j]]=[d.kinds[j],d.kinds[i]]}
+    d.dirty=true;return render()}
+  if(act==='kreset'){const d=getDraft();d.day=8;d.start='09:00';d.kinds=DEF_KINDS.map(k=>Object.assign({id:uid()},k));d.dirty=true;return render()}
+  if(act==='sdiscard'){draft=null;return render()}
+  if(act==='ssave')return saveSettings();
+  if(act==='plan'){const p=buildPlan();await put('plans',p.date,p);const n=p.ids.length;return toast(n?`Planned ${n} task${n===1?'':'s'} for today`:'No open tasks to plan')}
+  if(act==='unplan'){const p=todayPlan();if(!p)return;return put('plans',p.id,Object.assign({},p,{ids:p.ids.filter(x=>x!==id)}))}
+  if(act==='tab'){ui.tab[id]=b.dataset.tab;if(b.dataset.tab!=='compounds')ui.openC='';saveUi();return render()}
+  if(act==='openc'){if(e.target.closest('a'))return;const c=findC(id);if(!c)return;ui.openC=id;ui.tab[c.projectId]='compounds';saveUi();if(location.hash!=='#p-'+c.projectId){location.hash='p-'+c.projectId;return}render();return scrollTo(0,0)}
+  if(act==='closec'){ui.openC='';saveUi();return render()}
+  if(act==='si'){const c=findC(id);return c&&openSI(c)}
+  if(act==='rmname'){const c=findC(id);const names=(c.names||[]).filter((_,i)=>i!==+b.dataset.i);return upd('compounds',id,{names})}
+  if(act==='rmentry'){
+    if(!b.classList.contains('arm')){b.classList.add('arm');b.textContent='Confirm remove';setTimeout(()=>{if(b.isConnected){b.classList.remove('arm');b.textContent='Remove'}},4000);return}
+    const c=findC(id),en=entries(c).find(x=>x.id===b.dataset.e);await upd('compounds',id,{data:entries(c).filter(x=>x.id!==b.dataset.e)});
+    for(const f of (en&&en.files)||[])await dropAsset(f.id);return toast('Removed')}
+  if(act==='rmfile'){const c=findC(id);const data=entries(c).map(x=>x.id===b.dataset.e?Object.assign({},x,{files:(x.files||[]).filter(f=>f.id!==b.dataset.f)}):x);await upd('compounds',id,{data});await dropAsset(b.dataset.f);return toast('File removed')}
+  if(act==='rmstruct'){const c=findC(id);await upd('compounds',id,{structImg:''});return dropAsset(c.structImg)}
+  if(act==='toggle'){const t=S.tasks.find(x=>x.id===id);if(!t)return;const done=!t.done;await upd('tasks',id,{done,doneAt:done?today():''});if(done)toast('Done ✓');return}
+  if(act==='focus'){const t=S.tasks.find(x=>x.id===id);return upd('tasks',id,{focus:t.focus===today()?'':today()})}
+  if(act==='cycle'){e.preventDefault();const it=S[col].find(x=>x.id===id),opts=ST[col],i=opts.findIndex(s=>s[0]===it.status);return upd(col,id,{status:opts[(i+1)%opts.length][0]})}
+  if(act==='contacted'){await upd('people',id,{lastContact:today()});return toast('Contact logged')}
+  if(act==='promote'){const i=S.ideas.find(x=>x.id===id);const title=i.text.split('\n')[0].slice(0,200);await add('tasks',{title,projectId:i.projectId,kind:guessKind(title),hours:'',due:'',priority:2,done:false,doneAt:'',focus:'',notes:i.text.includes('\n')?i.text:''});await upd('ideas',id,{status:'promossa'});return toast('Idea turned into a task')}
+});
+app.addEventListener('keydown',e=>{
+  if(e.key==='Enter'&&(e.metaKey||e.ctrlKey)&&e.target.tagName==='TEXTAREA'&&e.target.form){e.preventDefault();e.target.form.requestSubmit();return}
+  if((e.key==='Enter'||e.key===' ')&&e.target.classList.contains('cmp')){e.preventDefault();e.target.click()}
+});
+let sTimer;
+app.addEventListener('input',e=>{
+  const t=e.target;
+  if(t.dataset.k||t.dataset.s){const d=getDraft();if(t.dataset.s)d[t.dataset.s]=t.value;else{const [kid,f]=t.dataset.k.split('|');const k=d.kinds.find(x=>x.id===kid);if(k)k[f]=t.value}
+    if(!d.dirty){d.dirty=true;render()}return}
+  if(!['s-q','s-sub'].includes(t.id))return;
+  ui.s[t.id==='s-q'?'q':'sub']=t.value;clearTimeout(sTimer);sTimer=setTimeout(()=>{saveUi();refreshSearch(t.id==='s-sub')},250);
+});
+app.addEventListener('change',async e=>{
+  const t=e.target;
+  if(t.id==='s-pid'||t.id==='s-miss'){ui.s.pid=document.getElementById('s-pid').value;ui.s.miss=document.getElementById('s-miss').checked;saveUi();return refreshSearch(false)}
+  if(t.dataset.ce){const [cid,eid,field]=t.dataset.ce.split('|');const c=findC(cid);if(!c)return;const en=entries(c).find(x=>x.id===eid);if(!en||en[field]===t.value)return;
+    const data=entries(c).map(x=>x.id===eid?Object.assign({},x,{[field]:t.value}):x);return upd('compounds',cid,{data})}
+  if(t.dataset.up&&t.files&&t.files.length){const [cid,target]=t.dataset.up.split('|');const files=[...t.files];t.value='';return uploadFiles(cid,target,files)}
+});
+app.addEventListener('submit',async e=>{
+  e.preventDefault();if(!db)return;const f=e.target,pid=f.dataset.pid||'';
+  if(f.dataset.form==='qtask'){const k=pid||'all',ti=document.getElementById('qt-title-'+k),du=document.getElementById('qt-due-'+k),hr=document.getElementById('qt-hrs-'+k),ps=document.getElementById('qt-proj');
+    const title=ti.value.trim();if(!title)return ti.focus();const projectId=pid||(ps?ps.value:'');if(!projectId)return toast('Choose a project');if(!pid){ui.lastProj=projectId;saveUi()}
+    const due=du.value,hours=parseFloat(hr.value)>0?parseFloat(hr.value):'';ti.value='';hr.value='';
+    await add('tasks',{title,projectId,due,hours,priority:2,kind:guessKind(title),done:false,doneAt:'',focus:'',notes:''});
+    toast(`Added · ${guessKind(title)}, ${hours?fh(hours):'~'+fh(+(kindDef(guessKind(title))||{}).hours||1)}`)}
+  if(f.dataset.form==='qidea'){const tx=document.getElementById('qi-text-'+pid);const text=tx.value.trim();if(!text)return tx.focus();tx.value='';
+    await add('ideas',{text,projectId:pid,status:'nuova'});toast('Idea saved')}
+  if(f.dataset.form==='qlog'){const tx=document.getElementById('ql-text-'+pid),dt=document.getElementById('ql-date-'+pid);const text=tx.value.trim();if(!text)return tx.focus();tx.value='';
+    await add('log',{text,date:dt.value||today(),projectId:pid});toast('Note logged')}
+  if(f.dataset.form==='addname'){const id=f.dataset.id,inp=document.getElementById('nm-'+id),v=inp.value.trim();if(!v)return inp.focus();inp.value='';const c=findC(id);
+    await upd('compounds',id,{names:[...(c.names||[]),v]})}
+  if(f.dataset.form==='addentry'){const id=f.dataset.id,c=findC(id),cu=document.getElementById('tc-'+id),tech=(cu.value.trim()||document.getElementById('te-'+id).value);cu.value='';
+    await upd('compounds',id,{data:[...entries(c),{id:uid(),technique:tech,cond:'',text:'',files:[]}]})}
+});
+
+/* ---------- local preview (only when opened outside claude.ai) ---------- */
+function previewDb(){
+  const store={},subs={};
+  const snap=c=>({docs:Object.entries(store[c]||{}).map(([id,d])=>({id,exists:true,data:()=>d})),metadata:{fromCache:false,hasPendingWrites:false}});
+  const emit=c=>(subs[c]||[]).forEach(fn=>fn(snap(c)));
+  const P=(c,id,d)=>{(store[c]=store[c]||{})[id]=d};
+  const api={
+    collection:c=>({add:async d=>{const id=uid();P(c,id,d);emit(c);return{id}},onSnapshot:fn=>{(subs[c]=subs[c]||[]).push(fn);setTimeout(()=>fn(snap(c)),0);return()=>{}}}),
+    doc:p=>{const [c,id]=p.split('/');return{update:async d=>{P(c,id,Object.assign({},(store[c]||{})[id],d));emit(c)},set:async d=>{P(c,id,d);emit(c)},delete:async()=>{if(store[c])delete store[c][id];emit(c)}}}
+  };
+  const td=today(),t0=Date.now()-20*864e5;
+  P('projects','demo1',{name:'Example: axially chiral biaryls',code:'PRJ-01',status:'attivo',color:COLORS[0],goal:'Atroposelective Suzuki coupling to biaryl 14; target er > 95:5.',deadline:addDays(td,60),fmProject:'',fmUrl:'',created:t0});
+  P('projects','demo2',{name:'Example: fluorinated photocatalysts',code:'PRJ-02',status:'attivo',color:COLORS[1],goal:'Screen CF₃-substituted acridinium dyes for C–H functionalisation.',created:t0+1});
+  [['Column of crude 14b (EtOAc/hexane 1:4)','demo1',td,1,'',''],['Send 14b to X-ray (Dr Bianchi)','demo1',addDays(td,-1),2,'',0.5],['Repeat Suzuki coupling at 0 °C','demo1',addDays(td,3),2,'',''],
+   ['Full characterization of Acr-3 (NMR, HRMS, UV-Vis, CV)','demo2',addDays(td,2),1,'Characterization',8],['Synthesis of Acr-4 precursor','demo2',addDays(td,4),2,'',''],
+   ['Order Pd(OAc)₂ and SPhos','demo1',addDays(td,5),3,'',''],['Read Nicewicz review on acridiniums','demo2','',3,'',''],['Draft SI for 14a–14f','demo1',addDays(td,10),3,'','']]
+    .forEach(([title,projectId,due,priority,kind,hours],i)=>P('tasks','t'+i,{title,projectId,due,priority,kind:kind||guessKind(title),hours,elnRef:i===0?'AB-042':'',elnUrl:'',notes:'',done:false,doneAt:'',focus:'',created:t0+i}));
+  for(let i=1;i<20;i++)if(i%3)P('tasks','d'+i,{title:'Completed example step '+i,projectId:i%2?'demo1':'demo2',kind:DEF_KINDS[i%4].name,hours:'',done:true,doneAt:addDays(td,-i*2),created:t0});
+  P('compounds','c1',{code:'14b',projectId:'demo1',names:['Methyl 2′-methoxy-[1,1′-biphenyl]-2-carboxylate','Biaryl ester 14b'],smiles:'COC(=O)c1ccccc1-c1ccccc1OC',formula:'C₁₅H₁₄O₃',mw:'242.27',elnRef:'AB-042',elnUrl:'',notes:'Colourless oil, store at 4 °C.',structImg:'',created:t0,
+    data:[{id:'e1',technique:'Yield',cond:'',text:'72% (1.23 g), colourless oil',files:[]},{id:'e2',technique:'¹H NMR',cond:'400 MHz, CDCl₃',text:'δ 7.92 (dd, J = 7.8, 1.4 Hz, 1H), 7.52 (td, J = 7.6, 1.4 Hz, 1H), 7.39 (m, 2H), 7.31 (m, 1H), 7.17 (dd, J = 7.4, 1.8 Hz, 1H), 7.02 (td, J = 7.4, 1.0 Hz, 1H), 6.90 (d, J = 8.2 Hz, 1H), 3.71 (s, 3H), 3.62 (s, 3H)',files:[]},{id:'e3',technique:'HRMS',cond:'ESI-TOF, m/z',text:'[M+Na]⁺ calcd for C₁₅H₁₄NaO₃ 265.0835, found 265.0838',files:[]},{id:'e4',technique:'¹³C{¹H} NMR',cond:'101 MHz, CDCl₃',text:'δ 168.1, 156.4, …',files:[]}]});
+  P('compounds','c3',{code:'14c',projectId:'demo1',names:['Methyl 2′-methyl-[1,1′-biphenyl]-2-carboxylate'],smiles:'COC(=O)C1=CC=CC=C1C1=CC=CC=C1C',formula:'C₁₅H₁₄O₂',mw:'226.27',structImg:'',created:t0+2,data:[{id:'e1',technique:'¹H NMR',cond:'400 MHz, CDCl₃',text:'δ …',files:[]}]});
+  P('compounds','c2',{code:'Acr-3',projectId:'demo2',names:['9-Mesityl-10-methylacridinium'],smiles:'C[n+]1c2ccccc2c(-c2c(C)cc(C)cc2C)c2ccccc12',formula:'C₂₃H₂₂N⁺',mw:'312.43',structImg:'',created:t0+1,data:[]});
+  P('ideas','i1',{text:'Try a chiral phosphoramidite ligand instead of SPhos for the coupling',projectId:'demo1',status:'nuova',created:t0});
+  P('papers','r1',{title:'Atroposelective synthesis of axially chiral biaryl compounds',authors:'Example, A.; Sample, B.',journal:'Example J. Chem.',year:'2021',doi:'',url:'',status:'chiave',projectId:'demo1',notes:'Table 2, entry 7: conditions to reproduce.',created:t0});
+  P('papers','r2',{title:'Example paper still to read',authors:'Sample, C.',journal:'Example Lett.',year:'2023',status:'leggere',projectId:'demo1',created:t0});
+  P('people','p1',{name:'Dr Bianchi (example)',affiliation:'X-ray facility',role:'Single-crystal X-ray of 14b',email:'',status:'attesa',lastContact:addDays(td,-6),projectId:'demo1',notes:'Crystals sent on Monday.',created:t0});
+  P('log','l1',{date:addDays(td,-1),text:'14b isolated, 72% yield, ¹H NMR matches literature.',projectId:'demo1',created:t0});
+  return api;
+}
+const previewAssets={upload:async f=>{const id=uid();LOCAL_BLOBS[id]=URL.createObjectURL(f);return{id,url:LOCAL_BLOBS[id],contentType:f.type}},delete:async()=>({deleted:true})};
+const PREVIEW=!window.claude&&/^(file:|http:\/\/(localhost|127\.0\.0\.1))/.test(location.href);
+
+/* ---------- boot ---------- */
+render();
+const timer=setTimeout(()=>{slow=true;render()},10000);
+(async()=>{
+  if(PREVIEW){db=previewDb();assets=previewAssets}
+  else try{db=window.claude&&await window.claude.use('db')}catch(e){db=null}
+  if(!db){clearTimeout(timer);phase='nodb';return render()}
+  if(!PREVIEW)window.claude.use('assets').then(a=>{assets=a||null;render()}).catch(()=>{});
+  ALL.forEach(c=>db.collection(c).onSnapshot(snap=>{
+    S[c]=snap.docs.map(d=>Object.assign({id:d.id},d.data()));
+    if(!snap.metadata.fromCache)loaded.add(c);
+    if(loaded.size===ALL.length){phase='ready';slow=false;clearTimeout(timer)}
+    render();
+  },err=>{console.error(c,err);loaded.add(c);if(loaded.size===ALL.length){phase='ready';clearTimeout(timer)}render()}));
+})();
+let lastDay=today();setInterval(()=>{if(today()!==lastDay){lastDay=today();render()}},60000);
+})();
+</script>
