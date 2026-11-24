@@ -392,7 +392,8 @@ const fmt=(s,o)=>s?pd(s).toLocaleDateString(LOC,o||{weekday:'short',day:'numeric
 const isoWeek=d=>{const t=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));const n=t.getUTCDay()||7;t.setUTCDate(t.getUTCDate()+4-n);const y=new Date(Date.UTC(t.getUTCFullYear(),0,1));return Math.ceil(((t-y)/864e5+1)/7)};
 const safeUrl=u=>/^https?:\/\//i.test(u||'')?u:'';
 const LOCAL_BLOBS={};
-const blob=id=>LOCAL_BLOBS[id]||'/_blob/'+encodeURIComponent(id);
+const PIX='data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
+const blob=(id,type)=>LOCAL_BLOBS[id]||(GHC?(ghBlob(id,type),PIX):'/_blob/'+encodeURIComponent(id));
 const uid=()=>Math.random().toString(36).slice(2,10);
 const proj=id=>S.projects.find(p=>p.id===id);
 const stOf=(col,v)=>(ST[col]||[]).find(s=>s[0]===v)||(ST[col]||[])[0];
@@ -654,7 +655,7 @@ function pCompounds(id){
 function compoundDetail(c){
   const es=entries(c), used=new Set(es.map(e=>e.technique));
   const fileTile=(e,f)=>{const img=/^image\//.test(f.type||'');const ext=(f.name||'').split('.').pop().toUpperCase().slice(0,4)||'FILE';
-    return `<div class="file"><a class="th" href="${blob(f.id)}" target="_blank" rel="noopener" title="Open ${esc(f.name)}">${img?`<img src="${blob(f.id)}" alt="${esc(f.name)}">`:esc(ext)}</a>
+    return `<div class="file"><a class="th" href="${blob(f.id,f.type)}" target="_blank" rel="noopener" title="Open ${esc(f.name)}">${img?`<img src="${blob(f.id,f.type)}" alt="${esc(f.name)}">`:esc(ext)}</a>
     <div class="fn"><span title="${esc(f.name)}">${esc(f.name)}</span><button data-act="rmfile" data-id="${esc(c.id)}" data-e="${esc(e.id)}" data-f="${esc(f.id)}" aria-label="Remove ${esc(f.name)}">×</button></div></div>`};
   const entry=e=>{const preset=TECH.find(t=>t[0]===e.technique)||['','',''];
     return `<div class="entry"><div class="eh"><span class="tn">${esc(e.technique)}</span>
@@ -869,9 +870,10 @@ function render(){
   const keep={};app.querySelectorAll('input[id]:not([type=file]):not([type=checkbox]),textarea[id],select[id]').forEach(el=>keep[el.id]=el.value);
   const act=document.activeElement, aid=act&&app.contains(act)&&act.id?act.id:null;let sel=null;try{if(aid)sel=[act.selectionStart,act.selectionEnd]}catch(e){}
   const r=route();let body;
-  if(phase==='nodb') body=`<div class="head"><h1>Storage not available</h1></div><div class="empty">Your data can’t be reached in this view. Open the page from claude.ai with your account to see and edit your projects.</div>`;
+  if(phase==='setup') body=vSetup();
+  else if(phase==='nodb') body=`<div class="head"><h1>Storage not available</h1></div><div class="empty">Your data can’t be reached in this view. Open the page from claude.ai with your account to see and edit your projects.</div>`;
   else if(phase==='loading'&&!loaded.size) body=`<div class="head"><div><h1>Loading…</h1><div class="sub">${slow?'Your data isn’t responding yet. Check your connection: the page updates by itself as soon as it arrives.':'Fetching projects, tasks and notes.'}</div></div></div>`;
-  else body=(PREVIEW?`<div class="banner">Local preview with example data. Nothing here is saved; your real data lives in the published page.</div>`:'')+(slow&&phase!=='ready'?`<div class="banner">Some data hasn’t arrived yet: what you see may be out of date.</div>`:'')+(r.v==='p'?vProject(r.id):r.v==='projects'?vProjects():r.v==='search'?vSearch():r.v==='settings'?vSettings():vToday());
+  else body=(PREVIEW?`<div class="banner">Local preview with example data. Nothing here is saved; your real data lives in the published page.</div>`:'')+(GHC&&SYNC.err?`<div class="banner">${esc(SYNC.err)}</div>`:'')+(slow&&phase!=='ready'?`<div class="banner">Some data hasn’t arrived yet: what you see may be out of date.</div>`:'')+(r.v==='p'?vProject(r.id):r.v==='projects'?vProjects():r.v==='search'?vSearch():r.v==='settings'?vSettings():vToday());
   app.innerHTML=side(r)+`<main class="main">${body}</main>`;
   for(const id in keep){const el=document.getElementById(id);if(!el)continue;if(el.tagName!=='SELECT')el.value=keep[id];else if([...el.options].some(o=>o.value===keep[id]))el.value=keep[id]}
   if(aid){const el=document.getElementById(aid);if(el){el.focus();try{if(sel)el.setSelectionRange(sel[0],sel[1])}catch(e){}}}
@@ -924,6 +926,8 @@ function vSettings(){
       <div class="note" style="max-width:75ch">Each task gets the default time of its activity type, unless you write its real time on the task. Keywords pick the type automatically from the task title (“column of 14b” → Workup). The order here is the order of your day in Daily work: put reactions first so they run while you do the rest.</div>
       <div class="kinds"><div class="krow hd"><span></span><span>Activity</span><span>Hours</span><span>Keywords</span><span></span></div>${d.kinds.map(row).join('')}</div>
       <div class="row"><button class="btn" data-act="kadd">${ICON.plus} Add activity type</button><button class="btn ghost" data-act="kreset">Restore defaults</button></div></section>
+    ${GHC?`<section class="sec"><h3>Storage</h3><div class="note" style="max-width:75ch">Your data is saved in the private GitHub repository <b>${esc(GHC.repo)}</b>${SYNC.at?`, last saved ${esc(new Date(SYNC.at).toLocaleTimeString(LOC,{hour:'2-digit',minute:'2-digit'}))}`:''}. The access token is kept only in this browser.</div>
+      <div class="row"><button class="btn" data-act="ghsync">Reload from GitHub</button><button class="btn ghost danger" data-act="ghout">Disconnect this browser</button></div></section>`:''}
     ${d.dirty?`<div class="savebar"><span>You have unsaved changes.</span><div class="row"><button class="btn" data-act="sdiscard">Discard</button><button class="btn pri" data-act="ssave">Save settings</button></div></div>`:''}
   </div>`;
 }
@@ -987,7 +991,10 @@ addEventListener('keydown',e=>{if(e.key==='Escape'&&edit)closeEditor()});
 const app=document.getElementById('app');
 const findC=id=>S.compounds.find(x=>x.id===id);
 app.addEventListener('click',async e=>{
-  const b=e.target.closest('[data-act]');if(!b||!db)return;
+  const b=e.target.closest('[data-act]');if(!b)return;
+  if(b.dataset.act==='ghout'){if(confirm('Disconnect this browser? Your data stays on GitHub; you will need the token to connect again.')){ghSave(null);location.reload()}return}
+  if(b.dataset.act==='ghsync'&&db&&db._reload){toast('Reloading…');await db._reload(true);return toast('Up to date')}
+  if(!db)return;
   const {act,col,id}=b.dataset;
   if(act==='new'){e.preventDefault();const def={};if(b.dataset.pid)def.projectId=b.dataset.pid;
     const r=route();if(!def.projectId&&r.v==='p')def.projectId=r.id;
@@ -1041,7 +1048,11 @@ app.addEventListener('change',async e=>{
   if(t.dataset.up&&t.files&&t.files.length){const [cid,target]=t.dataset.up.split('|');const files=[...t.files];t.value='';return uploadFiles(cid,target,files)}
 });
 app.addEventListener('submit',async e=>{
-  e.preventDefault();if(!db)return;const f=e.target,pid=f.dataset.pid||'';
+  e.preventDefault();const f=e.target,pid=f.dataset.pid||'';
+  if(f.dataset.form==='ghsetup'){const repo=document.getElementById('gh-repo').value.trim().replace(/^https?:\/\/github\.com\//,'').replace(/\.git$|\/$/g,''),token=document.getElementById('gh-token').value.trim();
+    if(!/^[\w.-]+\/[\w.-]+$/.test(repo))return toast('Write the repository as owner/name');if(!token)return toast('Paste your token');
+    GHC={repo,token};setupErr='';phase='loading';render();if(await startGithub()){ghSave(GHC);document.getElementById('gh-token')&&(document.getElementById('gh-token').value='');subscribe()}else{GHC=null;render()}return}
+  if(!db)return;
   if(f.dataset.form==='qtask'){const k=pid||'all',ti=document.getElementById('qt-title-'+k),du=document.getElementById('qt-due-'+k),hr=document.getElementById('qt-hrs-'+k),ps=document.getElementById('qt-proj');
     const title=ti.value.trim();if(!title)return ti.focus();const projectId=pid||(ps?ps.value:'');if(!projectId)return toast('Choose a project');if(!pid){ui.lastProj=projectId;saveUi()}
     const due=du.value,hours=parseFloat(hr.value)>0?parseFloat(hr.value):'';ti.value='';hr.value='';
@@ -1086,23 +1097,147 @@ function previewDb(){
   P('log','l1',{date:addDays(td,-1),text:'14b isolated, 72% yield, ¹H NMR matches literature.',projectId:'demo1',created:t0});
   return api;
 }
+
+/* ---------- GitHub storage (when the page runs outside claude.ai) ---------- */
+const GH_KEY='labOrganizer.github', DATA_FILE='data.json';
+let SYNC={err:'',at:0}, setupErr='', ghQueue=Promise.resolve();
+function ghCfg(){try{const c=JSON.parse(localStorage.getItem(GH_KEY)||'null');return c&&c.repo&&c.token?c:null}catch(e){return null}}
+function ghSave(c){try{c?localStorage.setItem(GH_KEY,JSON.stringify(c)):localStorage.removeItem(GH_KEY)}catch(e){}}
+const ghQ=fn=>{const r=ghQueue.then(fn);ghQueue=r.catch(()=>{});return r};
+const b64enc=u=>{let s='';for(let i=0;i<u.length;i+=0x8000)s+=String.fromCharCode.apply(null,u.subarray(i,i+0x8000));return btoa(s)};
+const b64dec=t=>{const b=atob(t.replace(/\s/g,''));const u=new Uint8Array(b.length);for(let i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u};
+const ghH=(c,accept)=>({Authorization:'Bearer '+c.token,Accept:accept||'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'});
+const ghUrl=(c,path)=>`https://api.github.com/repos/${c.repo}/contents/${path.split('/').map(encodeURIComponent).join('/')}`;
+async function ghReq(c,method,path,body,accept){
+  const r=await fetch(ghUrl(c,path),{method,cache:'no-store',headers:Object.assign(ghH(c,accept),body?{'Content-Type':'application/json'}:{}),body:body?JSON.stringify(body):undefined});
+  if(method==='GET'&&r.status===404)return null;
+  if(!r.ok){let m='';try{m=(await r.json()).message||''}catch(e){}const err=new Error(m||('GitHub error '+r.status));err.status=r.status;throw err}
+  return accept&&accept.includes('raw')?r:r.json();
+}
+const mimeOf=n=>({pdf:'application/pdf',png:'image/png',jpg:'image/jpeg',jpeg:'image/jpeg',gif:'image/gif',webp:'image/webp',svg:'image/svg+xml',txt:'text/plain',jdx:'text/plain',dx:'text/plain',csv:'text/csv',json:'application/json'})[(String(n).split('.').pop()||'').toLowerCase()]||'application/octet-stream';
+const ghLoading=new Set();
+function ghBlob(id,type){
+  if(ghLoading.has(id)||!GHC)return;ghLoading.add(id);
+  ghReq(GHC,'GET','files/'+id,null,'application/vnd.github.raw+json').then(async r=>{
+    if(!r)return;const buf=await r.arrayBuffer();
+    LOCAL_BLOBS[id]=URL.createObjectURL(new Blob([buf],{type:type||mimeOf(id)}));render();
+  }).catch(e=>{console.warn('file',id,e);ghLoading.delete(id)});
+}
+function ghErr(e){
+  if(e&&e.status===401)return 'GitHub refused the access token (expired or deleted). Go to Settings, disconnect, and connect again with a new token.';
+  if(e&&(e.status===403||e.status===404))return 'The token cannot write to the data repository. Check it has “Contents: Read and write” on that repository.';
+  return 'Not saved to GitHub yet ('+((e&&e.message)||'no connection')+'). Retrying…';
+}
+function githubDb(c){
+  let store={},sha=null,pending=[],saving=false,timer=null,lastLoad=0;
+  const subs={};
+  const snap=col=>({docs:Object.entries(store[col]||{}).map(([id,d])=>({id,exists:true,data:()=>d})),metadata:{fromCache:false,hasPendingWrites:pending.length>0}});
+  const emit=col=>(col?[col]:Object.keys(subs)).forEach(k=>(subs[k]||[]).forEach(fn=>fn(snap(k))));
+  const apply=(st,op)=>{const [k,col,id,d]=op,m=st[col]=st[col]||{};if(k==='set')m[id]=d;else if(k==='upd')m[id]=Object.assign({},m[id],d);else delete m[id]};
+  const clone=o=>JSON.parse(JSON.stringify(o));
+  async function load(){
+    const meta=await ghReq(c,'GET',DATA_FILE);
+    if(!meta){store={};sha=null}
+    else{sha=meta.sha;let text=meta.encoding==='base64'&&meta.content?new TextDecoder().decode(b64dec(meta.content)):await (await ghReq(c,'GET',DATA_FILE,null,'application/vnd.github.raw+json')).text();
+      const data=JSON.parse(text||'{}');store=data.collections||{}}
+    pending.forEach(op=>apply(store,op));lastLoad=Date.now();
+  }
+  async function flush(){
+    if(saving||!pending.length)return;saving=true;clearTimeout(timer);
+    const n=pending.length,body=JSON.stringify({app:'lab-organizer',version:1,saved:new Date().toISOString(),collections:store});
+    try{
+      const r=await ghQ(()=>ghReq(c,'PUT',DATA_FILE,Object.assign({message:'Update data',content:b64enc(new TextEncoder().encode(body))},sha?{sha}:{})));
+      sha=r.content.sha;pending=pending.slice(n);SYNC={err:'',at:Date.now()};saving=false;emit();
+      if(pending.length)schedule(300);
+    }catch(e){
+      saving=false;console.error(e);
+      if(e.status===409||e.status===422){try{await load();emit();return schedule(200)}catch(e2){e=e2}}
+      SYNC={err:ghErr(e),at:SYNC.at};render();if(e.status!==401)schedule(15000);
+    }
+  }
+  const schedule=ms=>{clearTimeout(timer);timer=setTimeout(flush,ms)};
+  const write=op=>{pending.push(clone(op));apply(store,clone(op));emit(op[1]);schedule(1200)};
+  async function reload(force){
+    if(pending.length||saving){if(force)await flush();return}
+    if(!force&&Date.now()-lastLoad<30000)return;
+    try{await load();SYNC.err='';emit()}catch(e){console.warn(e)}
+  }
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)reload(false)});
+  setInterval(()=>{if(!document.hidden)reload(false)},120000);
+  addEventListener('beforeunload',e=>{if(pending.length){flush();e.preventDefault();e.returnValue=''}});
+  return{
+    _load:load,_reload:reload,
+    collection:col=>({add:async d=>{const id=uid()+uid();write(['set',col,id,d]);return{id}},onSnapshot:fn=>{(subs[col]=subs[col]||[]).push(fn);setTimeout(()=>fn(snap(col)),0);return()=>{}}}),
+    doc:p=>{const [col,id]=p.split('/');return{update:async d=>write(['upd',col,id,d]),set:async d=>write(['set',col,id,d]),delete:async()=>write(['del',col,id])}}
+  };
+}
+function githubAssets(c){
+  return{
+    upload:async(f,o)=>{
+      if(f.size>20e6){const e=new Error('too large');e.code='too_large';throw e}
+      const type=(o&&o.type)||f.type||mimeOf(f.name),id=uid()+'-'+(f.name.replace(/[^\w.\-]+/g,'_').slice(-60)||'file');
+      const bytes=new Uint8Array(await f.arrayBuffer());
+      await ghQ(()=>ghReq(c,'PUT','files/'+id,{message:'Add '+f.name,content:b64enc(bytes)}));
+      LOCAL_BLOBS[id]=URL.createObjectURL(new Blob([bytes],{type}));
+      return{id,contentType:type};
+    },
+    delete:async id=>ghQ(async()=>{const m=await ghReq(c,'GET','files/'+id);if(m&&m.sha)await ghReq(c,'DELETE','files/'+id,{message:'Remove file',sha:m.sha});return{deleted:true}})
+  };
+}
+async function startGithub(){
+  try{
+    const r=await fetch('https://api.github.com/repos/'+GHC.repo,{headers:ghH(GHC),cache:'no-store'});
+    if(r.status===401)throw new Error('GitHub refused this token. Check you copied all of it and that it has not expired.');
+    if(r.status===404||r.status===403)throw new Error(`Repository ${GHC.repo} was not found, or this token has no access to it.`);
+    if(!r.ok)throw new Error('GitHub answered with error '+r.status+'. Try again.');
+    const info=await r.json();
+    if(info.private===false)throw new Error(`${GHC.repo} is public. Your data must go in a private repository: make it private on GitHub, or use another one.`);
+    const d=githubDb(GHC);await d._load();db=d;assets=githubAssets(GHC);return true;
+  }catch(e){console.error(e);setupErr=e.message||String(e);phase='setup';return false}
+}
+function vSetup(){
+  const owner=(location.hostname.match(/^([\w-]+)\.github\.io$/)||[])[1]||'your-name';
+  const step=(n,t)=>`<li style="margin:0 0 10px"><b>${n}.</b> ${t}</li>`;
+  return `<div class="head"><div><h1>Connect your data</h1><div class="sub">Your projects, tasks and spectra are saved in a private GitHub repository that only you can see. Do this once on each computer or phone you use.</div></div></div>
+  ${setupErr?`<div class="banner">${esc(setupErr)}</div>`:''}
+  <div class="stack"><section class="sec" style="max-width:720px"><h3>First time only</h3><ol style="padding-left:0;list-style:none;margin:0">
+    ${step(1,`Create a <b>private</b> repository for the data, for example <code>${esc(owner)}/lab-organizer-data</code>: <a href="https://github.com/new" target="_blank" rel="noopener">github.com/new</a>.`)}
+    ${step(2,`Create a token: <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">Fine-grained token</a> → Repository access: <i>Only select repositories</i> → the data repository → Permissions: <b>Contents: Read and write</b>. Pick a long expiration, then copy the token.`)}
+    ${step(3,'Paste it below. It is stored only in this browser and sent only to GitHub.')}</ol></section>
+  <form class="sec" data-form="ghsetup" style="max-width:720px"><h3>Connect</h3>
+    <div class="fld"><label for="gh-repo">Data repository</label><input id="gh-repo" type="text" value="${esc(owner)}/lab-organizer-data" autocomplete="off" spellcheck="false"></div>
+    <div class="fld"><label for="gh-token">Access token</label><input id="gh-token" type="password" placeholder="github_pat_…" autocomplete="off" spellcheck="false"></div>
+    <div class="row"><button class="btn pri" type="submit">Connect</button></div></form></div>`;
+}
 const previewAssets={upload:async f=>{const id=uid();LOCAL_BLOBS[id]=URL.createObjectURL(f);return{id,url:LOCAL_BLOBS[id],contentType:f.type}},delete:async()=>({deleted:true})};
-const PREVIEW=!window.claude&&/^(file:|http:\/\/(localhost|127\.0\.0\.1))/.test(location.href);
+const LOCALHOST=/^(file:|http:\/\/(localhost|127\.0\.0\.1))/.test(location.href);
+const PREVIEW=!window.claude&&LOCALHOST&&!/[?&]github\b/.test(location.search);
+const GH_MODE=!window.claude&&!PREVIEW;
+let GHC=GH_MODE?ghCfg():null;
 
 /* ---------- boot ---------- */
 render();
 const timer=setTimeout(()=>{slow=true;render()},10000);
-(async()=>{
-  if(PREVIEW){db=previewDb();assets=previewAssets}
-  else try{db=window.claude&&await window.claude.use('db')}catch(e){db=null}
-  if(!db){clearTimeout(timer);phase='nodb';return render()}
-  if(!PREVIEW)window.claude.use('assets').then(a=>{assets=a||null;render()}).catch(()=>{});
+function subscribe(){
+  clearTimeout(timer);phase='loading';
   ALL.forEach(c=>db.collection(c).onSnapshot(snap=>{
     S[c]=snap.docs.map(d=>Object.assign({id:d.id},d.data()));
     if(!snap.metadata.fromCache)loaded.add(c);
     if(loaded.size===ALL.length){phase='ready';slow=false;clearTimeout(timer)}
     render();
   },err=>{console.error(c,err);loaded.add(c);if(loaded.size===ALL.length){phase='ready';clearTimeout(timer)}render()}));
+}
+(async()=>{
+  if(PREVIEW){db=previewDb();assets=previewAssets}
+  else if(GH_MODE){
+    if(!GHC){clearTimeout(timer);phase='setup';return render()}
+    if(!await startGithub()){clearTimeout(timer);GHC=null;return render()}
+    return subscribe();
+  }
+  else try{db=window.claude&&await window.claude.use('db')}catch(e){db=null}
+  if(!db){clearTimeout(timer);phase='nodb';return render()}
+  if(!PREVIEW)window.claude.use('assets').then(a=>{assets=a||null;render()}).catch(()=>{});
+  subscribe();
 })();
 let lastDay=today();setInterval(()=>{if(today()!==lastDay){lastDay=today();render()}},60000);
 })();

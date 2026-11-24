@@ -10,9 +10,13 @@ Personal project organizer for organic chemistry lab work and project progress.
 
 ## How it runs
 
-`organizer.html` is a single-page app made to run as a Claude Artifact. Data is stored in the
-artifact's private, owner-only database, and spectra are stored as artifact assets.
-No data is kept in this repository.
+The site is served by GitHub Pages from `index.html`. This repository holds only the code: no data.
+
+Your data (projects, tasks, spectra) is saved in a separate **private** repository
+(e.g. `lab-organizer-data`), through the GitHub API, with a fine-grained access token that is kept
+only in your browser. The first time you open the site on a device, it asks for the repository and the token.
+
+`organizer.html` is the same app without the page skeleton; it also runs as a Claude Artifact.
 
 ## Local preview
 
@@ -23,4 +27,4 @@ sample data and saves nothing.
 python3 -m http.server 8765
 ```
 
-Then open http://localhost:8765/organizer.html
+Then open http://localhost:8765/organizer.html (add `?github` to the address to test with GitHub storage).
