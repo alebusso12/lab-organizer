@@ -1190,7 +1190,7 @@ async function startGithub(){
   try{
     const r=await fetch('https://api.github.com/repos/'+GHC.repo,{headers:ghH(GHC),cache:'no-store'});
     if(r.status===401)throw new Error('GitHub refused this token. Check you copied all of it and that it has not expired.');
-    if(r.status===404||r.status===403)throw new Error(`Repository ${GHC.repo} was not found, or this token has no access to it.`);
+    if(r.status===404||r.status===403)throw new Error(`GitHub error ${r.status}: this token cannot see ${GHC.repo}. Open github.com/settings/personal-access-tokens, click your token, choose Edit, and under Repository access pick “Only select repositories” and add ${GHC.repo.split('/')[1]}. Under Permissions, set Contents to “Read and write”. Save, then click Connect again: the token stays the same.`);
     if(!r.ok)throw new Error('GitHub answered with error '+r.status+'. Try again.');
     const info=await r.json();
     if(info.private===false)throw new Error(`${GHC.repo} is public. Your data must go in a private repository: make it private on GitHub, or use another one.`);
